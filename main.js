@@ -34,6 +34,29 @@ $(function() {
 
     console.log("document.ready");
 
+    // Online Offline Status
+    if (navigator.onLine) {
+        console.log('We\'re online!');
+    } else {
+        console.log('We\'re offline...');
+    }
+
+    var wentOffline, wentOnline;
+    function handleConnectionChange(event){
+        if(event.type == "offline"){
+            console.log("You lost connection.");
+            wentOffline = new Date(event.timeStamp);
+        }
+        if(event.type == "online"){
+            console.log("You are now back online.");
+            wentOnline = new Date(event.timeStamp);
+            console.log("You were offline for " + (wentOnline - wentOffline) / 1000 + "seconds.");
+        }
+    }
+
+    window.addEventListener('online', handleConnectionChange);
+    window.addEventListener('offline', handleConnectionChange);
+
     dhxWins = new dhtmlXWindows();
 
     var q = {
@@ -232,9 +255,60 @@ $(function() {
         } else if (id == "toolbar-test-3") {
             app.myTimer.resume();
 
-        } else if (id == "toolbar-test-4") {
-            app.myTimer.stop();
+        } else if (id == "toolbar-simulation-test-1") {
+            let params = {
+                origin: "tl",
+                pixels8: q.pixels8.simulationDisplay,
+                pixels32: q.pixels32.simulationDisplay,
+                ctxW: q.canvas.simulationDisplay.width,
+                ctxH: q.canvas.simulationDisplay.height
+            };
+            let x = -50.25;
+            let y = -50.25;
+            let w = 100.25;
+            let h = 100.25;
+
+            let white = hex_rgba32("#ffffff");
+
+            Debug.time("buffRect.warp");
+            for (let i = 0; i < 16384; i++) {
+                buffRect(x, y, w, h, {r:255, g:0, b:0, a:1}, 1, params );
+                buffRect(x+params.ctxW, y+params.ctxH, w, h, {r:255, g:0, b:0, a:1}, 1, params );
+            }
+            Debug.timeEnd("buffRect.warp", "simulation");
+            
+        } else if (id == "toolbar-simulation-test-2") {
+            let params = {
+                origin: "tl",
+                pixels8: q.pixels8.simulationDisplay,
+                pixels32: q.pixels32.simulationDisplay,
+                ctxW: q.canvas.simulationDisplay.width,
+                ctxH: q.canvas.simulationDisplay.height
+            };
+            let x = -50.25;
+            let y = -50.25;
+            let w = 100.25;
+            let h = 100.25;
+
+            let white = hex_rgba32("#ffffff");
+
+            $.doTimeout("weaveImageSave", 1, function() {
+                x += 0.01;
+                y += 0.01;
+                // w += 0.01;
+                // h += 0.01;
+                drawSolidRect32(params.origin, params.pixels32, params.ctxW, params.ctxH, 0, 0, params.ctxW, params.ctxH, white);
+                buffRect(x, y, w, h, {r:255, g:0, b:0, a:1}, 1, params );
+                buffRect(x+params.ctxW, y+params.ctxH, w, h, {r:255, g:0, b:0, a:1}, 1, params );
+                q.context.simulationDisplay.putImageData(q.pixels.simulationDisplay, 0, 0);
+                // q.context.simulationDisplay.fillStyle = '#FF0000';
+                // q.context.simulationDisplay.fillRect(x+80, y, w, h);
+                return true;
+            });
+            
         
+        } else if (id == "toolbar-artwork-test-01") {
+
         } else if (id == "toolbar-test-outline") {
             console.log("outline-test");
             q.artwork.colorOutline();
@@ -308,12 +382,14 @@ $(function() {
         } else if (id == "toolbar-simulation-render") {
             q.simulation.render(6);
 
-            // Toolbar Three
-        } else if (id == "toolbar-three-render") {
-            globalThree.buildFabric();
+        } else if (id == "toolbar-simulation-estimate-dpi") {
+            XWin.show("estimateDPI");
 
+        // Toolbar Three
+        } else if (id == "toolbar-three-render") {
+            q.three.buildFabric();
         } else if (id == "toolbar-three-reset-view") {
-            globalThree.resetPosition();
+            q.three.resetPosition();
         } else if (id == "toolbar-three-change-view") {
             q.three.changeView();
 
@@ -393,12 +469,6 @@ $(function() {
 
         } else if (id == "weave-tools-removewefttabby") {
             modify2D8("weave", "removewefttabby");
-
-        } else if (id == "weave-tools-filltopattern") {
-            var newW = q.pattern.warp.length;
-            var newH = q.pattern.weft.length;
-            var newWeave = arrayTileFill(q.graph.weave2D8, newW, newH);
-            q.graph.set(0, "weave", newWeave);
 
         } else if (id == "weave-tools-remove-empty-ends") {
             let newWeave = q.graph.weave2D8.transform2D8(0, "removeemptyends");
@@ -617,6 +687,9 @@ $(function() {
                 setArray2D8FromDataURL("tieup", "open", file);
             });
 
+        } else if (id == "weave-fill-to-pattern") {
+            q.graph.fillToPattern();
+        
         } else if (id == "weave-draft-image") {
             q.graph.download();
 
@@ -627,8 +700,10 @@ $(function() {
             XWin.show("weaveCode", compress2D8(q.graph.weave2D8));
 
         } else if (id == "weave-library-import") {
-            openFileDialog("artwork", "Weave", true).then(file => {
-                setArray2D8FromDataURL("weave", "import", file);
+            openFileDialog("artwork", "Weave", true).then(files => {
+                for (var i = 0; i < files.length; i++) {
+                    setArray2D8FromDataURL("weave", "import", files[i]);
+                }
             });
 
         } else if (id == "threading-code") {
@@ -706,6 +781,8 @@ $(function() {
             q.palette.set("default");
 
             // Artwork
+        } else if (id == "artwork-new") {
+            XWin.show("newArtwork");
         } else if (id == "artwork-open") {
             openFileDialog("artwork", "Artwork").then(file => {
                 q.artwork.open(file);
@@ -719,6 +796,15 @@ $(function() {
 
         } else if (id == "artwork-resize") {
             XWin.show("resizeArtwork");
+
+        } else if (id == "default-8color") {
+            q.artwork.setDefaultColorPalette(8);
+
+        } else if (id == "default-15color") {
+            q.artwork.setDefaultColorPalette(15);
+
+        } else if (id == "default-27color") {
+            q.artwork.setDefaultColorPalette(27);
 
         }
 
@@ -772,8 +858,6 @@ $(function() {
         let btn = $(this).attr("data-action");
         let itemId = li.attr("data-item-id");
 
-        console.log([win, btn, itemId]);
-
         if (win == "yarns") {
 
             if (btn == "edit") {
@@ -789,8 +873,12 @@ $(function() {
 
             }
 
+        } else if (win == "artworkColors") {
+            if (btn == "edit") {
+                XWin.show("editArtworkColor", { id: itemId });
+            }
+        
         } else if (win == "weaves") {
-
             if (btn == "delete") {
                 let deleteWeave = await app.confirm("red", "Delete", `Are you sure you want to delete "${q.graph.weaves[itemId].title}" from the Weave Library?`);
                 if (deleteWeave) {
@@ -803,6 +891,15 @@ $(function() {
                 var itemData = q.graph.weaves[itemId];
                 Selection.content = itemData.weave2D8;
                 Selection.contentType = "weave";
+
+            } else if (btn == "rename") {
+                let newName = await app.prompt("red", "Rename Weave", `Enter a new name:`, q.graph.weaves[itemId].title);
+                if (newName) {
+                    q.graph.weaves[itemId].title = newName;
+                    app.wins.weaves.tabs.user.domNeedsUpdate = true;
+                    app.history.record("onWeaveRename", "weaves");
+                    XWin.render("onWeaveRename", "weaves", "user");
+                }
 
             }
 
@@ -1089,21 +1186,19 @@ $(function() {
 
             $("#file-open").off("change");
 
-            $("#file-open").on("change", function() {
+            $("#file-open").on("change", async function() {
 
                 if (this.files && this.files[0]) {
 
                     clearModalNotifications();
 
                     if (multiple) {
-
+                        let data = [];
                         for (let key in this.files) {
                             if (this.files.hasOwnProperty(key)) {
                                 file = this.files[key];
                                 if (file.type.match(valid) || type.in("wif", "wve")) {
-                                    readFileContents(file, type).then(data => {
-                                        resolve(data);
-                                    });
+                                    data[key] = await readFileContents(file, type);
                                 } else {
                                     XWin.show("error");
                                     XWin.notify("error", "error", "<strong>Invalid " + title + " File</strong></br>File: " + file.name + "</br>" + "Valid File Type: " + info);
@@ -1111,6 +1206,8 @@ $(function() {
                                 }
                             }
                         }
+                        resolve(data);
+                        return;
 
                     } else {
 
@@ -1411,8 +1508,8 @@ $(function() {
             var gen_weave = getWeaveFromParts(gen_tieup, gen_threading, gen_treadling);
 
             var floats = Floats.count(gen_weave);
-            var maxWarpFloat = Math.max(arrayMax(floats.warp.face.list), arrayMax(floats.warp.back.list));
-            var maxWeftFloat = Math.max(arrayMax(floats.weft.face.list), arrayMax(floats.weft.back.list));
+            var maxWarpFloat = Math.max(arrMax(floats.warp.face.list), arrMax(floats.warp.back.list));
+            var maxWeftFloat = Math.max(arrMax(floats.weft.face.list), arrMax(floats.weft.back.list));
 
             if (balanceWeave) {
                 maxWeftFloatReq = maxWarpFloatReq;
@@ -1916,11 +2013,9 @@ $(function() {
     }
 
     function dataURLToImageData(dataurl) {
-        console.log("dataURLToImageData");
         var w = dataurl.width;
         var h = dataurl.height;
         var x = q.ctx(61, "noshow", "dataurl-to-imgdata", w, h, false, false);
-        //x.clearRect(0, 0, w, h)
         x.fillStyle = "#FFFFFF";
         x.fillRect(0, 0, w, h);
         x.drawImage(dataurl, 0, 0);
@@ -1965,7 +2060,7 @@ $(function() {
 
         var cycle = 0;
 
-        $.doTimeout("weaveImageSave", 10, function() {
+        $.doTimeout("weaveImageSave", 1, function() {
 
             Debug.time("saveCycleTime");
 
@@ -2053,7 +2148,7 @@ $(function() {
                 var color0 = buffer[0];
                 var color0State = colorBrightness32(color0) < 128 ? 1 : 0;
 
-                $.doTimeout(thread_id, 10, function() {
+                $.doTimeout(thread_id, 1, function() {
 
                     Debug.time("cycleTime");
 
@@ -2073,9 +2168,12 @@ $(function() {
 
                         if (action == "open") {
                             q.graph.set(0, target, array2D8);
+
                         } else if (action === "import") {
-                            app.wins.weaves.addItem("user", file.name + "-" + target, array2D8);
+                            let filename = getFileNameParts(file.name);
+                            app.wins.weaves.addItem("user", filename.name, array2D8);
                             XWin.show("weaves.user");
+
                         }
                         return false;
                     }
@@ -2102,170 +2200,7 @@ $(function() {
                 var c, ix, colors = [];
                 let colorLimit = q.limits.maxArtworkColors;
 
-                $.doTimeout(thread_id, 10, function() {
-
-                    Debug.time("cycleTime");
-
-                    for (y = startY; y < endY; y++) {
-                        i = (ih - y - 1) * iw;
-                        for (x = startX; x < endX; x++) {
-                            c = buffer[i + x];
-                            ix = colors.indexOf(c);
-                            if (ix == -1) {
-                                ix = colors.length;
-                                if (ix >= colorLimit) {
-                                    success = false;
-                                    break;
-                                }
-                                colors[ix] = c;
-                            }
-                            array2D8[x][y] = ix;
-                        }
-                        if (!success) break;
-                    }
-
-                    if (!success) {
-                        loadingbar.remove();
-                        XWin.show("error");
-                        XWin.notify("error", "error", "<strong>Image Colors Exceeing Limit</strong></br>" + "Maximum Colors Limit: " + q.limits.maxArtworkColors);
-                        return false;
-                    }
-
-                    cycle++;
-
-                    loadingbar.progress = Math.round(cycle * percentagePerChunk);
-
-                    if (endY >= ih && endX >= iw) {
-                        q.artwork.set(array2D8, colors);
-                        Debug.timeEnd(thread_id);
-                        loadingbar.remove();
-                        return false;
-                    }
-
-                    if (endX >= iw) {
-                        startY = y;
-                        endY = limitNumber(startY + chunkSize, 0, ih);
-                        startX = 0;
-                        endX = limitNumber(startX + chunkSize, 0, iw);
-                    } else {
-                        startX = x;
-                        endX = limitNumber(startX + chunkSize, 0, iw);
-                    }
-
-                    Debug.timeEnd("cycleTime");
-                    return true;
-
-                });
-
-            }
-
-        } else {
-
-            loadingbar.remove();
-            XWin.show("error");
-            XWin.notify("error", "error", "<strong>Image Size Exceeing Limit</strong></br>" + "Image Dimensions: " + iw + " &times; " + ih + "</br>Limit: " + maxW + " &times; " + maxH);
-
-        }
-
-    }
-
-    function setArray2D8FromDataURL_promise(target, action, file) {
-
-        let thread_id = "setArrFromDataURL" + file.name;
-        Debug.time(thread_id);
-
-        let loadingbar = new Loadingbar(thread_id, "Reading", true, false);
-
-        let success = true;
-
-        let iw = file.image.width;
-        let ih = file.image.height;
-
-        let maxS = q.limits.maxShafts;
-        let maxV = q.limits.maxWeaveSize;
-        let maxA = q.limits.maxArtworkSize;
-
-        let maxW = lookup(target, ["weave", "tieup", "threading", "treadling", "liftplan", "artwork"], [maxV, maxS, maxV, maxS, maxS, maxA]);
-        let maxH = lookup(target, ["weave", "tieup", "threading", "treadling", "liftplan", "artwork"], [maxV, maxS, maxS, maxV, maxV, maxA]);
-
-        if ( iw <= maxW && ih <= maxH ) {
-
-            var i, x, y;
-            var idata = dataURLToImageData(file.image);
-            var buffer = new Uint32Array(idata.data.buffer);
-
-            var chunkSize = target == "artwork" ? 512 : 1024;
-            var xChunks = Math.ceil(iw / chunkSize);
-            var yChunks = Math.ceil(ih / chunkSize);
-            var totalChunks = xChunks * yChunks;
-            var percentagePerChunk = 100 / totalChunks;
-
-            var startX = 0;
-            var startY = 0;
-            var endX = xChunks == 1 ? iw : chunkSize;
-            var endY = yChunks == 1 ? ih : chunkSize;
-
-            var cycle = 0;
-
-            var array2D8 = newArray2D8(7, iw, ih);
-
-            if (target.in("weave", "tieup", "threading", "treadling", "liftplan")) {
-
-                loadingbar.title = "Importing";
-
-                var color0 = buffer[0];
-                var color0State = colorBrightness32(color0) < 128 ? 1 : 0;
-
-                $.doTimeout(thread_id, 10, function() {
-
-                    Debug.time("cycleTime");
-
-                    for (y = startY; y < endY; y++) {
-                        i = (ih - y - 1) * iw;
-                        for (x = startX; x < endX; x++) {
-                            array2D8[x][y] = colorBrightness32(buffer[i + x]) < 128 ? 1 : 0;
-                        }
-                    }
-                    cycle++;
-
-                    loadingbar.progress = Math.round(cycle * percentagePerChunk);
-
-                    if (endY >= ih && endX >= iw) {
-                        Debug.timeEnd(thread_id);
-                        loadingbar.remove();
-
-                        if (action == "open") {
-                            q.graph.set(0, target, array2D8);
-                        } else if (action === "import") {
-                            app.wins.weaves.addItem("user", file.name + "-" + target, array2D8);
-                            XWin.show("weaves.user");
-                        }
-                        return false;
-                    }
-
-                    if (endX >= iw) {
-                        startY = y;
-                        endY = limitNumber(startY + chunkSize, 0, ih);
-                        startX = 0;
-                        endX = limitNumber(startX + chunkSize, 0, iw);
-                    } else {
-                        startX = x;
-                        endX = limitNumber(startX + chunkSize, 0, iw);
-                    }
-
-                    Debug.timeEnd("cycleTime");
-                    return true;
-
-                });
-
-            } else if (target == "artwork") {
-
-                loadingbar.title = "Reading Artwork Image";
-
-                var c, ix, colors = [];
-                let colorLimit = q.limits.maxArtworkColors;
-
-                $.doTimeout(thread_id, 10, function() {
+                $.doTimeout(thread_id, 1, function() {
 
                     Debug.time("cycleTime");
 
@@ -3105,7 +3040,7 @@ $(function() {
 
         get data() {
             return new Promise((resolve, reject) => {
-                if (typeof firebase == 'undefined') resolve(false);
+                if (typeof firebase == "undefined") resolve(false);
                 let userDataRef = fb.fs.collection("users").doc(q.user.current.email);
                 userDataRef.get().then((doc) => {
                     if (doc.exists) {
@@ -3139,9 +3074,1848 @@ $(function() {
     };
 
     // ----------------------------------------------------------------------------------
+    // Three Object & Methods
+    // ----------------------------------------------------------------------------------
+    var globalThree = {
+
+        status: {
+            scene: false,
+            textures: false,
+            materials: false,
+            fabric: false
+        },
+
+        fps: [],
+
+        renderer: undefined,
+        scene: undefined,
+        camera: undefined,
+        controls: undefined,
+        model: undefined,
+        lights: {
+            ambient: undefined,
+            point: undefined,
+            spot: undefined
+        },
+
+        raycaster: new THREE.Raycaster(),
+
+        textures: {
+
+            needsUpdate: true,
+            pending: 0,
+            threadBumpMap: {
+                url: "three/textures/bump_yarn.png",
+                val: undefined
+            },
+            test512: {
+                url: "three/textures/uvgrid_01.jpg",
+                val: undefined
+            }
+
+        },
+
+        materials: {
+            needsUpdate: true,
+            default: {},
+            fabric: {},
+            warp: {},
+            weft: {}
+        },
+
+        fabric: undefined,
+        threads: [],
+        childIds: [],
+
+        composer: undefined,
+
+        effectFXAA: undefined,
+        renderPass: undefined,
+
+        sceneCreated: false,
+
+        animate: false,
+
+        currentPreset: 0,
+        rotationPresets: [
+            [0, 0, 0],
+            [0, 0, -180],
+            [0, 0, 0],
+            [-90, 0, 0],
+            [-90, 90, 0],
+            [-30, 45, 0],
+            [-30, 0, 0],
+        ],
+
+        warpStart: 1,
+        weftStart: 1,
+        warpThreads: 12,
+        weftThreads: 12,
+
+        setup: {
+            showAxes: false,
+            bgColor: "white"
+        },
+
+        structureDimensions: {
+            x: 0,
+            y: 0,
+            z: 0
+        },
+
+        threadDisplacement: {
+            x: 0, // End to End Distance
+            y: 0, // Layer Spacing
+            z: 0 // Pick to Pick Distance
+        },
+
+        weave2D8: [],
+
+        warpRadius: 0,
+        warpRadiusX: 0,
+        warpRadiusY: 0,
+        weftRadius: 0,
+        weftRadiusX: 0,
+        weftRadiusY: 0,
+
+        maxFabricThickness: 0,
+
+        defaultOpacity: 0,
+        defaultDepthTest: true,
+
+        axesArrows: undefined,
+        rotationAxisLine: undefined,
+
+        mouseAnimate: false,
+
+        // Three
+        params: {
+
+            animate: false,
+
+            initCameraUp: new THREE.Vector3(0, 1, 0),
+            initCameraPos: new THREE.Vector3(0, 6, 0),
+            cameraPos: new THREE.Vector3(0, 6, 0),
+            initCameraZoom: 20,
+            initControlsTarget: new THREE.Vector3(0, 0, 0),
+            controlsTarget: new THREE.Vector3(0, 0, 0),
+            initFabricRotation: new THREE.Vector3(0, 0, 0),
+            fabricRotation: new THREE.Vector3(0, 0, 0),
+
+            structure: [
+
+                ["select", "Yarn Configs", "yarnConfig", [
+                    ["biset", "Bi-Set"],
+                    ["palette", "Palette"]
+                ], {
+                    col: "2/5"
+                }],
+
+                ["select", "Warp", "warpYarnId", [ ["system_0", "Default"] ], { col: "2/3", hide: true }],
+                ["select", "Weft", "weftYarnId", [ ["system_0", "Default"] ], { col: "2/3", hide: true }],
+
+                ["section", "Thread Density"],
+                ["number", "Warp Density", "warpDensity", 55, {
+                    col: "1/3",
+                    min: 10,
+                    max: 300,
+                    precision: 1
+                }],
+                ["number", "Weft Density", "weftDensity", 55, {
+                    col: "1/3",
+                    min: 10,
+                    max: 300,
+                    precision: 1
+                }],
+
+                ["section", "Fabric Layers"],
+                ["check", "Layer Structure", "layerStructure", 0],
+                ["text", false, "layerStructurePattern", 1, {
+                    col: "1/1",
+                    hide: true
+                }],
+                ["number", "Layer Distance (mm)", "layerDistance", 10, {
+                    col: "1/3",
+                    min: 0,
+                    max: 1000,
+                    hide: true
+                }],
+
+                ["control", "save", "play"]
+
+            ],
+
+            render: [
+
+                ["header", "Render Area"],
+                ["number", "Warp Start", "warpStart", 1, {
+                    col: "1/3"
+                }],
+                ["number", "Weft Start", "weftStart", 1, {
+                    col: "1/3"
+                }],
+                ["number", "Warp Threads", "warpThreads", 4, {
+                    col: "1/3",
+                    min: 2,
+                    max: 120
+                }],
+                ["number", "Weft Threads", "weftThreads", 4, {
+                    col: "1/3",
+                    min: 2,
+                    max: 120
+                }],
+
+                ["header", "Render Quality"],
+                ["number", "Radius Segments", "radialSegments", 8, {
+                    col: "1/3",
+                    min: 3,
+                    max: 36
+                }],
+                ["number", "Tubular Segments", "tubularSegments", 8, {
+                    col: "1/3",
+                    min: 1,
+                    max: 36
+                }],
+                ["check", "Show Curve Nodes", "showCurveNodes", 0, {
+                    col: "1/3"
+                }],
+                ["check", "Show Wireframe", "showWireframe", 0, {
+                    col: "1/3"
+                }],
+                ["check", "Smooth Shading", "smoothShading", 1, {
+                    col: "1/3"
+                }],
+                ["check", "End Caps", "endCaps", 1, {
+                    col: "1/3"
+                }],
+
+                ["control", "save", "play"]
+
+            ],
+
+            filters: [
+
+                ["check", "Hide Colors", "hideColors", 0, {
+                    col: "1/3"
+                }],
+                ["text", false, "hiddenColors", "", {
+                    col: "1/1",
+                    hide: true
+                }],
+                ["control", "save", "play"]
+
+            ],
+
+            scene: [
+
+                ["select", "Projection", "projection", [
+                    ["perspective", "PERSP"],
+                    ["orthographic", "ORTHO"]
+                ], {
+                    col: "1/2"
+                }],
+                ["select", "Background", "bgType", [
+                    ["solid", "Solid"],
+                    ["gradient", "Gradient"],
+                    ["transparent", "Transparent"],
+                    ["image", "Image"]
+                ], {
+                    col: "1/2"
+                }],
+                ["color", "Background Color", "bgColor", "#FFFFFF", {
+                    col: "1/3"
+                }],
+                ["check", "Show Axes", "showAxes", 0, {
+                    col: "1/3"
+                }],
+                ["check", "Hover Outline", "mouseHoverOutline", 0, {
+                    col: "1/3"
+                }],
+                ["check", "Hover Highlight", "mouseHoverHighlight", 0, {
+                    col: "1/3"
+                }],
+                ["range", "Light Temperature", "lightTemperature", 6600, {
+                    col: "1/1",
+                    min: 2700,
+                    max: 7500,
+                    step: 100
+                }],
+                ["range", "Light Intensity", "lightsIntensity", 0.5, {
+                    col: "1/1",
+                    min: 0,
+                    max: 1,
+                    step: 0.05
+                }],
+                ["check", "Cast Shadow", "castShadow", 1, {
+                    col: "1/3"
+                }],
+                ["control"]
+
+            ]
+
+        },
+
+        exportGLTF: async function() {
+            var loadingbar = new Loadingbar("exportGLTF", "Exporting 3D Model", false);
+            await q.three.resetPosition();
+            tp.showAxes = false;
+            q.three.axesArrows.visible = false;
+            q.three.render();
+            var options = {
+                trs: false,
+                onlyVisible: true,
+                truncateDrawRange: false,
+                binary: false,
+                forceIndices: false,
+                forcePowerOfTwoTextures: false
+            };
+            var exporter = new THREE.GLTFExporter();
+            exporter.parse(q.three.fabric, function(gltf) {
+                if (gltf instanceof ArrayBuffer) {
+                    saveArrayBufferAsFile(gltf, "scene.glb");
+                } else {
+                    var output = JSON.stringify(gltf, null, 2);
+                    saveStringAsFile(output, "weave3d.gltf");
+                }
+                loadingbar.remove();
+            }, options);
+        },
+
+        applyShadowSetting: async function() {
+            await q.three.createScene();
+            this.lights.directional0.castShadow = tp.castShadow;
+            let threads = this.fabric.children;
+            for (let i = threads.length - 1; i >= 0; --i) {
+                if (threads[i].name == "thread") {
+                    threads[i].castShadow = tp.castShadow;
+                    threads[i].receiveShadow = tp.castShadow;
+                }
+            }
+            this.render();
+        },
+
+        resetPosition: function () {
+            let _this = this;
+            this.currentPreset = 0;
+            return new Promise(async (resolve, reject) => {
+                await q.three.animateThreeSceneTo(tp.initFabricRotation, tp.initCameraPos, tp.initControlsTarget, 1);
+                resolve();
+            });
+        },
+
+        changeView: async function(index = false) {
+            if (!index) {
+                index = loopNumber(this.currentPreset + 1, this.rotationPresets.length);
+            }
+            this.currentPreset = index;
+            var pos = this.rotationPresets[index];
+            var modelRotation = new THREE.Vector3(toRadians(pos[0]), toRadians(pos[1]), toRadians(pos[2]));
+            globalThree.animateThreeSceneTo(modelRotation);
+        },
+
+        // q.three.setInterface:
+        setInterface: async function(instanceId = 0, render = true) {
+
+            // console.log(["globalThree.setInterface", instanceId]);
+            //logTime("globalThree.setInterface("+instanceId+")");
+
+            var threeBoxL = 0;
+            var threeBoxB = 0;
+
+            var threeBoxW = app.frame.width - threeBoxL;
+            var threeBoxH = app.frame.height - threeBoxB;
+
+            $("#three-container").css({
+                "width": threeBoxW,
+                "height": threeBoxH,
+                "left": threeBoxL,
+                "bottom": threeBoxB,
+            });
+
+            q.position.update("three");
+
+            if ( app.views.active !== "three" || !render ) return;
+
+            console.error("q.three.setInterface.active");
+
+            await q.three.createScene();
+
+            this.renderer.setSize(app.frame.width, app.frame.height);
+            this.composer.setSize(app.frame.width, app.frame.height);
+
+            this.setPerspectiveCamera();
+            this.setOrthographicCamera();
+
+            this.setBackground();
+            this.render();
+
+            //logTimeEnd("globalThree.setInterface("+instanceId+")");
+
+        },
+
+        setPerspectiveCamera: function(){
+            let aspect = app.frame.width / app.frame.height;
+            this.perspectiveCamera.aspect = aspect;
+            this.perspectiveCamera.updateProjectionMatrix();
+        },
+
+        setOrthographicCamera: function(){
+            this.orthographicCamera.left = -app.frame.width / 2;
+            this.orthographicCamera.right = app.frame.width / 2;
+            this.orthographicCamera.top = app.frame.height / 2;
+            this.orthographicCamera.bottom = -app.frame.height / 2;
+            this.orthographicCamera.updateProjectionMatrix();
+        },
+
+        setBackground: async function() {
+            console.error("q.three.setBackground");
+            if ( !this.composer ) return;
+            console.log("q.three.setBackground:this.composer.true");
+            await setSceneBackground(this.renderer, this.scene, "#three-container", tp.bgType, tp.bgColor);
+            console.log("q.three.setBackground.setSceneBackground");
+            q.three.render();
+        },
+
+        // q.three.createScene:
+        createScene: function() {
+
+            return new Promise((resolve, reject) => {
+
+                if (this.status.scene) return resolve();
+
+                let _this = globalThree;
+
+                _this.renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    alpha: true,
+                    preserveDrawingBuffer: true
+                });
+
+                _this.renderer.setPixelRatio(q.pixelRatio);
+                _this.renderer.setSize(app.frame.width, app.frame.height);
+
+                _this.renderer.physicallyCorrectLights = true;
+                _this.renderer.shadowMap.enabled = true;
+                _this.renderer.shadowMapSoft = true;
+                _this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                _this.renderer.shadowMap.bias = 0.0001;
+
+                _this.renderer.outputEncoding = THREE.sRGBEncoding;
+
+                Debug.item("maxAnisotropy", _this.maxAnisotropy, "three");
+                Debug.item("maxTextureSize", _this.renderer.capabilities.maxTextureSize, "three");
+
+                var container = document.getElementById("three-container");
+                container.innerHTML = "";
+                container.appendChild(_this.renderer.domElement);
+                _this.renderer.domElement.id = "threeDisplay";
+                $("#threeDisplay").addClass('graph-canvas');
+                q.canvas.threeDisplay = _this.renderer.domElement;
+
+                // scene
+                _this.scene = new THREE.Scene();
+
+                // cameras
+                var aspect = app.frame.width / app.frame.height;
+                _this.perspectiveCamera = new THREE.PerspectiveCamera(45, aspect, 0.1, 500);
+                _this.orthographicCamera = new THREE.OrthographicCamera(-app.frame.width / 2, app.frame.width / 2, app.frame.height / 2, -app.frame.height / 2, -200, 500);
+                _this.orthographicCamera.zoom = tp.initCameraZoom;
+                
+                _this.camera = tp.projection == "perspective" ? _this.perspectiveCamera : _this.orthographicCamera;
+
+                _this.scene.add(_this.camera);
+                //_this.scene.add(new THREE.CameraHelper(_this.camera));
+
+                // controls
+                _this.controls = new THREE.OrbitControls(_this.camera, _this.renderer.domElement);
+                _this.controls.minDistance = 1;
+                _this.controls.maxDistance = 100;
+                _this.controls.enableKeys = false;
+                _this.controls.screenSpacePanning = true;
+
+                //_this.controls.minPolarAngle = 0;
+                //_this.controls.maxPolarAngle = Math.PI/1.8;
+
+                // _this.controls.enableDamping = true;
+                // _this.controls.dampingFactor = 0.05;
+                // _this.controls.rotateSpeed = 0.1;
+
+                // _this.controls.autoRotate = true;
+                // _this.controls.autoRotateSpeed = 1;
+
+                _this.camera.position.copy(tp.initCameraPos);
+                _this.controls.target.copy(tp.initControlsTarget);
+                _this.controls.update();
+
+                _this.controls.addEventListener("change", function() {
+                    _this.render();
+                });
+
+                _this.fabric = new THREE.Group();
+                _this.scene.add(_this.fabric);
+                var initRotation = tp.initFabricRotation;
+                _this.fabric.rotation.set(initRotation.x, initRotation.y, initRotation.z);
+
+                // Custom Axes
+                _this.axesArrows = new THREE.Group();
+                var xArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xFF0000);
+                var yArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 1), new THREE.Vector3(0, 0, 0), 1, 0x00FF00);
+                var zArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0), 1, 0x0000FF);
+                xArrow.name = "axes-arrow-x";
+                yArrow.name = "axes-arrow-y";
+                zArrow.name = "axes-arrow-z";
+                _this.axesArrows.add(xArrow);
+                _this.axesArrows.add(yArrow);
+                _this.axesArrows.add(zArrow);
+                _this.axesArrows.name = "axesArrows";
+                _this.fabric.add(_this.axesArrows);
+                _this.axesArrows.visible = tp.showAxes;
+
+                _this.setBackground();
+
+                var line_material = new THREE.LineBasicMaterial({
+                    color: 0x999999
+                });
+                var line_geometry = new THREE.Geometry();
+                line_geometry.vertices.push(new THREE.Vector3(0, -10, 0));
+                line_geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+                line_geometry.vertices.push(new THREE.Vector3(0, 10, 0));
+
+                _this.rotationAxisLine = new THREE.Line(line_geometry, line_material);
+                _this.scene.add(_this.rotationAxisLine);
+                _this.rotationAxisLine.visible = tp.showAxes;
+
+                _this.composerSetup();
+
+                _this.setLights();
+
+                _this.status.scene = true;
+                _this.render();
+                _this.startAnimation();
+                resolve();
+
+            });
+
+        },
+
+        // q.three.setLights;
+        setLights: function() {
+
+            let _this = this;
+            var _lights = _this.lights;
+
+            var kelvin = tp.lightTemperature;
+            var lh_rgb = kelvinToRGB(kelvin);
+            var lh = rgb_hex(lh_rgb.r, lh_rgb.g, lh_rgb.b, "0x");
+
+            Debug.item("lightTemperatureHEX", lh_rgb.r + "," + lh_rgb.g + "," + lh_rgb.b, "three");
+
+            lh = parseInt(lh, 16);
+
+            var li = tp.lightsIntensity;
+
+            var ai = 4 * li;
+            var pi = 30 * li;
+            var si = 300 * li;
+            var fi = 150 * li;
+            var hi = 3 * li;
+            var di = 3 * li;
+
+            if (!_lights.ambient) {
+                _lights.ambient = new THREE.AmbientLight(lh, ai);
+                this.scene.add(_lights.ambient);
+            } else {
+                _lights.ambient.intensity = ai;
+                _lights.ambient.color.setHex(lh);
+            }
+
+            if (!_lights.directional0) {
+
+                _lights.directional0 = new THREE.DirectionalLight(lh, di);
+                _lights.directional0.position.set(-10, 10, -10);
+                this.scene.add(_lights.directional0);
+
+                _lights.directional0.shadow.bias = -0.0001;
+                _lights.directional0.shadow.mapSize.width = 512;
+                _lights.directional0.shadow.mapSize.height = 512;
+                _lights.directional0.shadow.camera.near = 0.5;
+                _lights.directional0.shadow.camera.far = 100;
+
+                _lights.directional1 = new THREE.DirectionalLight(lh, di);
+                _lights.directional1.position.set(10, -10, 10);
+                this.scene.add(_lights.directional1);
+
+            } else {
+                _lights.directional0.intensity = di;
+                _lights.directional0.color.setHex(lh);
+
+                _lights.directional1.intensity = di;
+                _lights.directional1.color.setHex(lh);
+            }
+
+            _this.lights.directional0.castShadow = tp.castShadow;
+
+            q.three.render();
+
+        },
+
+        composerSetup: function() {
+            globalThree.composer = new THREE.EffectComposer(globalThree.renderer);
+            globalThree.renderPass = new THREE.RenderPass(globalThree.scene, globalThree.camera);
+            globalThree.composer.addPass(globalThree.renderPass);
+
+            this.outlinePass.setup();
+
+            globalThree.effectFXAA = new THREE.ShaderPass(THREE.FXAAShader);
+            globalThree.effectFXAA.uniforms.resolution.value.set(1 / app.frame.width, 1 / app.frame.height);
+            globalThree.composer.addPass(globalThree.effectFXAA);
+
+        },
+
+        switchCameraTo: function(projection) {
+
+            var currentCamera = this.camera.isPerspectiveCamera ? "perspective" : this.camera.isOrthographicCamera ? "orthographic" : "unknown";
+            if (projection !== currentCamera) {
+
+                var cameraZoom = this.camera.zoom;
+                var cameraPos = this.camera.position.clone();
+                var cameraRotation = this.camera.rotation.clone();
+
+                var cameraMatrix = this.camera.matrix.clone();
+                var controlsTarget = this.controls.target.clone();
+                var controlsPos = this.controls.position0.clone();
+                var quaternion = this.camera.quaternion.clone();
+
+                this.camera = this[projection+"Camera"];
+
+                globalThree.composerSetup();
+
+                this.controls.object = this.camera;
+                this.controls.target.copy(controlsTarget);
+                this.camera.position.copy(cameraPos);
+                this.camera.rotation.copy(cameraRotation);
+                this.camera.matrix.copy(cameraMatrix);
+                this.camera.quaternion.copy(quaternion);
+                this.camera.updateProjectionMatrix();
+
+                if (projection == "orthographic") {
+                    var objectPos = new THREE.Vector3(0, 0, 0);
+                    var distance = this.perspectiveCamera.position.distanceTo(objectPos);
+                    this.orthographicCamera.zoom = distance / 1.9;
+                    this.orthographicCamera.updateProjectionMatrix();
+                }
+
+                if (projection == "perspective") {
+                    this.perspectiveCamera.position.normalize().multiplyScalar( this.orthographicCamera.zoom * 1.9 );
+                    this.perspectiveCamera.updateProjectionMatrix();
+                }
+
+                this.controls.update();
+                q.three.render();
+
+            }
+
+        },
+
+        cameraZoomToDistance: function(zoom){
+
+        },
+
+        cameraDistanceToZoom: function(distance){
+
+        },
+
+        disposeHierarchy: function(node, callback) {
+            for (var i = node.children.length - 1; i >= 0; i--) {
+                var child = node.children[i];
+                this.disposeHierarchy(child, callback);
+                callback(child);
+            }
+        },
+
+        disposeNode: function(parentObject) {
+            parentObject.traverse(function(node) {
+                if (node instanceof THREE.Mesh) {
+                    if (node.geometry) {
+                        node.geometry.dispose();
+                    }
+                    if (node.material) {
+                        var materialArray;
+                        if (node.material instanceof THREE.MeshFaceMaterial || node.material instanceof THREE.MultiMaterial) {
+                            materialArray = node.material.materials;
+                        } else if (node.material instanceof Array) {
+                            materialArray = node.material;
+                        }
+                        if (materialArray) {
+                            materialArray.forEach(function(mtrl, idx) {
+                                if (mtrl.map) mtrl.map.dispose();
+                                if (mtrl.lightMap) mtrl.lightMap.dispose();
+                                if (mtrl.bumpMap) mtrl.bumpMap.dispose();
+                                if (mtrl.normalMap) mtrl.normalMap.dispose();
+                                if (mtrl.specularMap) mtrl.specularMap.dispose();
+                                if (mtrl.envMap) mtrl.envMap.dispose();
+                                mtrl.dispose();
+                            });
+                        } else {
+                            if (node.material.map) node.material.map.dispose();
+                            if (node.material.lightMap) node.material.lightMap.dispose();
+                            if (node.material.bumpMap) node.material.bumpMap.dispose();
+                            if (node.material.normalMap) node.material.normalMap.dispose();
+                            if (node.material.specularMap) node.material.specularMap.dispose();
+                            if (node.material.envMap) node.material.envMap.dispose();
+                            node.material.dispose();
+                        }
+                    }
+                }
+            });
+        },
+
+        disposeScene: function() {
+
+            this.disposeHierarchy(this.scene, this.disposeNode);
+            this.renderer.dispose();
+            this.renderer.forceContextLoss();
+            //this.renderer.context = undefined;
+            this.renderer.domElement = undefined;
+            this.status.scene = false;
+
+        },
+
+        disposeMaterials: function() {
+            let _this = this;
+            ["warp", "weft"].forEach(function(set) {
+                for (let c in _this.materials[set]) {
+                    if ( _this.materials[set].hasOwnProperty(c) ){
+                        _this.materials[set][c].dispose();
+                        _this.materials[set][c] = undefined;
+                    }
+                }
+                _this.materials[set] = [];
+            });
+        },
+
+        // Three
+        loadTextures: function (callback) {
+
+            let _this = this;
+
+            if ( _this.textures.needsUpdate ) {
+
+                var loadingbar = new Loadingbar("threeloadingtextures", "Loading Textures");
+                var loader = new THREE.TextureLoader();
+
+                for (let id in _this.textures) {
+
+                    if ( _this.textures[id].url ) {
+
+                        _this.textures.pending++;
+
+                        _this.textures[id].val = loader.load(_this.textures[id].url, function (texture) {
+
+                            texture.wrapS = THREE.RepeatWrapping;
+                            texture.wrapT = THREE.RepeatWrapping;
+                            texture.rotation = toRadians(45);
+                            texture.repeat.set(1, 1);
+                            texture.offset.set(0, 0);
+                            texture.anisotropy = _this.renderer.capabilities.getMaxAnisotropy();
+                            texture.needsUpdate = true;
+
+                            _this.render();
+
+                            _this.textures.pending--;
+
+                            if ( !_this.textures.pending ) {
+
+                                loadingbar.remove();
+                                _this.textures.needsUpdate = false;
+
+                                Debug.input("number", "Texture Rotation Deg", 45, "live", function (val) {
+                                    globalThree.materials.weft.b.bumpMap.rotation = toRadians(Number(val));
+                                    _this.render();
+                                });
+
+                                Debug.input("text", "Texture Repeat 'x,y'", "1,1", "live", function (val) {
+                                    val = val.split(",");
+                                    let val0 = Number(val[0]);
+                                    let val1 = Number(val[1]);
+                                    globalThree.materials.weft.b.bumpMap.repeat.set(val[0], val[1]);
+                                    _this.render();
+                                });
+
+                                Debug.input("text", "Texture Offset 'x,y'", "0,0", "live", function (val) {
+                                    val = val.split(",");
+                                    let val0 = Number(val[0]);
+                                    let val1 = Number(val[1]);
+                                    globalThree.materials.weft.baseCanvas.bumpMap.offset.set(val[0], val[1]);
+                                    _this.render();
+                                });
+
+                                if (typeof callback === "function") callback();
+
+                            }
+
+                        });
+
+                    }
+
+                }
+
+            } else {
+
+                if (typeof callback === "function") callback();
+
+            }
+
+        },
+
+        // Three
+        createThreadMaterials: function(callback) {
+
+            return new Promise((resolve, reject) => {
+
+                var bumpMap, color, threadLength, threadDia, renderSize;
+                let _this = this;
+
+                _this.loadTextures(function() {
+
+                    var loadingbar = new Loadingbar("threecreatingmaterials", "Creating Materials");
+
+                    if (!_this.status.materials) {
+
+                        _this.disposeMaterials();
+
+                        ["warp", "weft"].forEach(function(set) {
+
+                            q.pattern.colors(set).forEach(function(colorCode, i) {
+
+                                color = q.palette.colors[colorCode];
+
+                                _this.materials[set][colorCode] = new THREE.MeshStandardMaterial({
+                                    color: color.hex,
+                                    side: THREE.FrontSide,
+                                    roughness: 1,
+                                    metalness: 0,
+                                    transparent: true,
+                                    opacity: _this.defaultOpacity,
+                                    depthWrite: true,
+                                    wireframe: tp.showWireframe,
+                                    name: set + "-" + colorCode
+                                });
+
+                                threadLength = tp[set + "Threads"] / tp[set + "Density"];
+
+                                let yarnId = tp.yarnConfig == "palette" ? color.yarnId : tp[set+"YarnId"];
+                                let yarn = q.graph.yarns[yarnId] !== undefined ? q.graph.yarns[yarnId] : q.graph.yarns.system_0;
+                                let yarnThickness = Textile.getYarnDia(yarn.number, yarn.number_system, "px", "in");
+                                let isSpun = yarn.structure == "spun";
+
+                                if (isSpun) {
+                                    bumpMap = _this.textures.threadBumpMap.val.clone();
+                                    bumpMap.offset.set(getRandom(0, 1), getRandom(0, 1));
+                                    bumpMap.repeat.set(threadLength / yarnThickness / 5, 1);
+                                    bumpMap.needsUpdate = true;
+                                    _this.materials[set][colorCode].bumpMap = bumpMap;
+                                    _this.materials[set][colorCode].bumpScale = 0.01;
+                                }
+
+                            });
+
+                        });
+
+                    }
+
+                    loadingbar.remove();
+
+                    _this.render();
+
+                    resolve();
+
+                });
+
+            });
+
+        },
+
+        buildFabric: async function() {
+
+            let _this = this;
+
+            await q.three.createScene();
+            q.three.removeFabric();
+            await q.three.createThreadMaterials();
+
+            let yarnConfig = tp.yarnConfig;
+            let warpProfile = tp.warpYarnProfile;
+            let weftProfile = tp.weftYarnProfile;
+            let warpNumber = tp.warpNumber;
+            let weftNumber = tp.weftNumber;
+            let warpAspect = tp.warpAspect;
+            let weftAspect = tp.weftAspect;
+            let warpNumberSystem = "nec";
+            let weftNumberSystem = "nec";
+
+            let warpDensity = tp.warpDensity;
+            let weftDensity = tp.weftDensity;
+            let radialSegments = tp.radialSegments;
+            let warpStart = tp.warpStart;
+            let weftStart = tp.weftStart;
+            let warpThreads = tp.warpThreads;
+            let weftThreads = tp.weftThreads;
+            let showCurveNodes = tp.showCurveNodes;
+            let showWireframe = tp.showWireframe;
+
+            if (!q.graph.weave2D8.is2D8) return;
+
+            let weave2D8 = q.graph.weave2D8.tileFill(warpThreads, weftThreads, 1 - warpStart, 1 - weftStart);
+            _this.weave2D8 = weave2D8;
+
+            _this.defaultOpacity = tp.showCurveNodes ? 0.25 : 1;
+            _this.defaultDepthTest = tp.showCurveNodes ? false : true;
+
+            // Thread to Thread Distance in mm
+            let threadDisplacement = {
+                x: 25.4 / warpDensity,
+                z: 25.4 / weftDensity
+            };
+            _this.threadDisplacement = threadDisplacement;
+
+            // Structure Dimensions
+            let structureDimension = {
+                x: threadDisplacement.x * (warpThreads - 1),
+                z: threadDisplacement.z * (weftThreads - 1)
+            };
+            _this.structureDimension = structureDimension;
+
+            // Offset model to center
+            let xOffset = threadDisplacement.x * (warpThreads - 1) / 2;
+            let zOffset = threadDisplacement.z * (weftThreads - 1) / 2;
+
+            _this.xOffset = xOffset;
+            _this.zOffset = zOffset;
+
+            let [warpRadius, warpRadiusX, warpRadiusY] = Textile.getYarnRadius(warpNumber, warpNumberSystem, warpProfile, warpAspect);
+            _this.warpRadius = warpRadius;
+
+            let [weftRadius, weftRadiusX, weftRadiusY] = Textile.getYarnRadius(weftNumber, weftNumberSystem, weftProfile, weftAspect);
+            _this.weftRadius = weftRadius;
+
+            let maxFabricThickness = (warpRadiusY + weftRadiusY) * 2;
+
+            _this.warpRadiusX = warpRadiusX;
+            _this.warpRadiusY = warpRadiusY;
+            _this.weftRadiusX = weftRadiusX;
+            _this.weftRadiusY = weftRadiusY;
+            _this.maxFabricThickness = maxFabricThickness;
+
+            // Arrow Axes Position
+            let axesArrowsPos = {
+                x: -(structureDimension.x / 2 + threadDisplacement.x + Math.min(threadDisplacement.x, threadDisplacement.z) / 2),
+                y: 0,
+                z: structureDimension.z / 2 + threadDisplacement.z + Math.min(threadDisplacement.x, threadDisplacement.z) / 2
+            };
+            _this.axesArrows.position.set(axesArrowsPos.x, axesArrowsPos.y, axesArrowsPos.z);
+            _this.axesArrows.visible = tp.showAxes;
+            _this.rotationAxisLine.visible = tp.showAxes;
+
+            _this.threads = [];
+
+            let percentPerThread = 100 / (tp.warpThreads + tp.weftThreads);
+            let x = 0;
+            let xThreads = tp.warpThreads;
+            let y = 0;
+            let yThreads = tp.weftThreads;
+            let loadingbar = new Loadingbar("addThreads", "Rendering Threads", true);
+
+            $.doTimeout("addThreads", 1, function() {
+                if (x < xThreads) {
+                    loadingbar.title = "Rendering Warp Thread " + (x + 1) + "/" + xThreads;
+                    _this.addThread("warp", x);
+                    _this.render();
+                    loadingbar.progress = Math.round((x + y) * percentPerThread);
+                    x++;
+                    return true;
+                }
+                if (x == xThreads && y < yThreads) {
+                    loadingbar.title = "Rendering Weft Thread " + (y + 1) + "/" + yThreads;
+                    _this.addThread("weft", y);
+                    _this.render();
+                    loadingbar.progress = Math.round((x + y) * percentPerThread);
+                    y++;
+                    return true;
+                }
+                if (x == xThreads && y == yThreads) {
+                    _this.render();
+                    loadingbar.remove();
+                    _this.afterBuildFabric();
+                    return false;
+                }
+            });
+
+        },
+
+        afterBuildFabric: function() {
+
+            let _this = this;
+
+            const boundingBox = new THREE.Box3();
+            boundingBox.setFromObject(q.three.fabric);
+            const center = boundingBox.getCenter();
+            const size = boundingBox.getSize();
+
+            let fovX = q.three.perspectiveCamera.fov * (app.frame.width / app.frame.height);
+            let fovY = q.three.perspectiveCamera.fov;
+            let halfFovXRad = toRadians(fovX/2);
+            let halfFovYRad = toRadians(fovY/2);
+            let cameraYA =  size.x / 2 / Math.tan(halfFovXRad);
+            let cameraYB =  size.z / 2 / Math.tan(halfFovYRad);
+            let cameraY = Math.max(cameraYA, cameraYB);
+            let offset = 1.25;
+            cameraY *= offset;
+            tp.initCameraPos = new THREE.Vector3(0, cameraY, 0);
+
+            q.three.resetPosition();
+
+            Debug.item("Fabric size.x", size.x, "three");
+            Debug.item("Fabric size.y", size.y, "three");
+            Debug.item("Fabric size.z", size.z, "three");
+
+            // debug Console
+            Debug.item("Geometries", _this.renderer.info.memory.geometries, "three");
+            Debug.item("Textures", _this.renderer.info.memory.textures, "three");
+            Debug.item("Calls", _this.renderer.info.render.calls, "three");
+            Debug.item("Triangles", _this.renderer.info.render.triangles, "three");
+            Debug.item("Points", _this.renderer.info.render.points, "three");
+            Debug.item("Lines", _this.renderer.info.render.lines, "three");
+
+        },
+
+        getThreadUpDownArray: function(arr2D8, threadSet, threadi) {
+            var threadArr;
+            if (threadSet == "warp") {
+                threadArr = arr2D8[threadi];
+            } else if (threadSet == "weft") {
+                var w = arr2D8.length;
+                threadArr = new Uint8Array(w);
+                for (var x = 0; x < w; x++) {
+                    threadArr[x] = 1 - arr2D8[x][threadi];
+                }
+            }
+            return threadArr;
+        },
+
+        addThread: function(set, threeIndex) {
+
+            // console.log("addThread : " + set + "-" + threeIndex);
+
+            let _this = this;
+
+            let sx, sy, sz, waveLength, waveAmplitude, pathSegments, intersectH, orientation, yarnRadiusX, yarnRadiusY;
+            let weaveIndex, patternIndex;
+
+            let threadDisplacement = _this.threadDisplacement;
+            let xOffset = _this.structureDimension.x / 2;
+            let zOffset = _this.structureDimension.z / 2;
+            let hft = _this.maxFabricThickness / 2; // half fabric thickness
+
+            let radialSegments = tp.radialSegments;
+
+            let WpRx = _this.warpRadiusX;
+            let WpRy = _this.warpRadiusY;
+            let WfRx = _this.weftRadiusX;
+            let WfRy = _this.weftRadiusY;
+            let rigidityVar = (WfRy * Math.sqrt(WfRy * WfRx) * threadDisplacement.z * threadDisplacement.z) / (WpRy * Math.sqrt(WpRy * WpRx) * threadDisplacement.z * threadDisplacement.z);
+            let WpWa = hft * rigidityVar / (1 + rigidityVar); // Warp Wave Amplitude
+            let WfWa = hft - WpWa; // Weft Wave Amplitude
+
+            if (set == "warp") {
+
+                orientation = "z";
+                sx = threeIndex * threadDisplacement.x - xOffset;
+                sy = 0;
+                sz = zOffset;
+
+                waveLength = threadDisplacement.z * 2;
+                waveAmplitude = WpWa;
+                pathSegments = (tp.weftThreads + 1) * tp.tubularSegments;
+
+                weaveIndex = loopNumber(threeIndex + tp.warpStart - 1, q.graph.ends);
+                patternIndex = loopNumber(threeIndex + tp.warpStart - 1, q.pattern.warp.length);
+
+            } else if (set == "weft") {
+
+                orientation = "x";
+                sx = -xOffset;
+                sy = 0;
+                sz = -threeIndex * threadDisplacement.z + zOffset;
+
+                waveLength = threadDisplacement.x * 2;
+                waveAmplitude = WfWa;
+                pathSegments = (tp.warpThreads + 1) * tp.tubularSegments;
+
+                weaveIndex = loopNumber(threeIndex + tp.weftStart - 1, q.graph.picks);
+                patternIndex = loopNumber(threeIndex + tp.weftStart - 1, q.pattern.weft.length);
+
+            }
+
+            // console.log([set, patternIndex]);
+
+            let threadUpDownArray = q.three.getThreadUpDownArray(_this.weave2D8, set, threeIndex);
+            let colorCode = q.pattern[set][patternIndex] || false;
+            let color = q.palette.colors[colorCode];
+            let colorHex = colorCode ? color.hex : (set == "warp" ? "#0000FF" : "#FFFFFF");
+
+            let yarnId = tp.yarnConfig == "palette" ? color.yarnId : tp[set+"YarnId"];
+            let yarn = q.graph.yarns[yarnId] !== undefined ? q.graph.yarns[yarnId] : q.graph.yarns.system_0;
+
+            let [radius, xRadius, yRadius] = Textile.getYarnRadius(yarn.number, yarn.number_system, yarn.profile, yarn.aspect);
+
+            let userData = {
+                type: "tube",
+                threadSet: set,
+                weavei: weaveIndex,
+                patterni: patternIndex,
+                threei: threeIndex,
+                colorCode: colorCode,
+                threeId: set + "-" + threeIndex,
+                weaveId: set + "-" + weaveIndex
+            };
+
+            // console.log(userData);
+            let hiddenColors = tp.hiddenColors.split("");
+            if (tp.hideColors && hiddenColors.includes(colorCode)) {
+                return;
+            }
+
+            return _this.add3DWave(sx, sy, sz, xRadius, yRadius, waveLength, waveAmplitude, threadUpDownArray, orientation, colorHex, userData, pathSegments, radialSegments, yarn.profile);
+
+        },
+
+        waveSegmentPoints: function(towards, sx, sy, sz, w, h, bca, segmentPoints, dir, removeLastPoint = true) {
+            var endPoint, control1, control2;
+            h = dir ? h : -h;
+            var staPoint = new THREE.Vector3(sx, sy + h / 2, sz);
+            if (towards == "z") {
+                control1 = new THREE.Vector3(sx, sy + h / 2, sz + bca);
+                control2 = new THREE.Vector3(sx, sy - h / 2, sz + w - bca);
+                endPoint = new THREE.Vector3(sx, sy - h / 2, sz + w);
+            } else if (towards == "x") {
+                control1 = new THREE.Vector3(sx - bca, sy + h / 2, sz);
+                control2 = new THREE.Vector3(sx - w + bca, sy - h / 2, sz);
+                endPoint = new THREE.Vector3(sx - w, sy - h / 2, sz);
+            }
+            var curve = new THREE.CubicBezierCurve3(staPoint, control1, control2, endPoint);
+            var points = curve.getPoints(segmentPoints);
+            if (removeLastPoint) points.pop();
+            return points;
+        },
+
+        add3DWave: function(sx, sy, sz, xTubeRadius, yTubeRadius, waveLength, waveAmplitude, threadUpDownArray, orientation, hex, userData, pathSegments, radialSegments, shapeProfile) {
+
+            //console.log(["add3DWave", userData.threadSet]);
+
+            let _this = this;
+
+            // var wa = waveAmplitude;
+
+            var wa = yTubeRadius;
+
+            var wl = -waveLength;
+            var bca = wl / 4; //bezierControlAmount
+
+            // var atan = Math.atan2(wa*2, wl/2) / Math.PI * 2;
+            // var bca =  (atan * wl + atan * wa) / 1.5;
+
+            var state, prevState, n, nx, ny, nz, curvePoints, threadMaterial, geometry;
+
+            var threadSet = userData.threadSet;
+            var colorCode = userData.colorCode;
+            var isWarp = threadSet == "warp";
+            var isWeft = threadSet == "weft";
+            var pointCount = tp.tubularSegments;
+
+            var points = [];
+
+            if (isWarp) {
+
+                for (n = 0; n < threadUpDownArray.length; n++) {
+                    state = threadUpDownArray[n];
+                    if (n) {
+                        nz = sz + (n - 1) * wl / 2;
+                        if (n == 1) {
+                            ny = prevState ? wa : -wa;
+                            curvePoints = q.three.waveSegmentPoints("z", sx, ny, sz - wl / 2, wl / 2, 0, bca, pointCount, prevState);
+                            points = points.concat(curvePoints);
+                        }
+                        if (state == prevState) {
+                            ny = state ? wa : -wa;
+                            curvePoints = q.three.waveSegmentPoints("z", sx, ny, nz, wl / 2, 0, bca, pointCount, state);
+                        } else {
+                            curvePoints = q.three.waveSegmentPoints("z", sx, sy, nz, wl / 2, wa * 2, bca, pointCount, prevState);
+                        }
+                        points = points.concat(curvePoints);
+                        if (n == threadUpDownArray.length - 1) {
+                            ny = state ? wa : -wa;
+                            curvePoints = q.three.waveSegmentPoints("z", sx, ny, nz + wl / 2, wl / 2, 0, bca, pointCount, state, false);
+                            points = points.concat(curvePoints);
+                        }
+                    }
+                    prevState = state;
+                }
+
+            } else if (isWeft) {
+
+                for (n = 0; n < threadUpDownArray.length; n++) {
+                    state = threadUpDownArray[n];
+                    if (n) {
+                        nx = sx - (n - 1) * wl / 2;
+                        if (n == 1) {
+                            ny = prevState ? wa : -wa;
+                            curvePoints = q.three.waveSegmentPoints("x", sx + wl / 2, ny, sz, wl / 2, 0, bca, pointCount, prevState);
+                            points = points.concat(curvePoints);
+                        }
+                        if (state == prevState) {
+                            ny = state ? wa : -wa;
+                            curvePoints = q.three.waveSegmentPoints("x", nx, ny, sz, wl / 2, 0, bca, pointCount, state);
+                        } else {
+                            curvePoints = q.three.waveSegmentPoints("x", nx, sy, sz, wl / 2, wa * 2, bca, pointCount, prevState);
+                        }
+                        points = points.concat(curvePoints);
+                        if (n == threadUpDownArray.length - 1) {
+                            ny = state ? wa : -wa;
+                            curvePoints = q.three.waveSegmentPoints("x", nx - wl / 2, ny, sz, wl / 2, 0, bca, pointCount, state, false);
+                            points = points.concat(curvePoints);
+                        }
+                    }
+                    prevState = state;
+                }
+
+            }
+
+            var path = new THREE.CatmullRomCurve3(points);
+
+            let threadShape, extrudeSettings;
+
+            if (shapeProfile == "elliptical") {
+
+                let shapeRotation = isWarp ? 0.5 * Math.PI : 0;
+                let shape = new THREE.EllipseCurve(0, 0, xTubeRadius, yTubeRadius, 0, 2 * Math.PI, false, shapeRotation);
+                threadShape = new THREE.Shape(shape.getPoints(tp.radialSegments));
+                extrudeSettings = {
+                    steps: pathSegments,
+                    extrudePath: path
+                };
+
+            } else if (shapeProfile == "rectangular") {
+
+                var shapePoints = [];
+                var shapeW = xTubeRadius;
+                var shapeH = yTubeRadius;
+                if (isWarp) {
+                    [shapeW, shapeH] = [shapeH, shapeW];
+                }
+                shapePoints.push(new THREE.Vector2(shapeW, -shapeH));
+                shapePoints.push(new THREE.Vector2(shapeW, shapeH));
+                shapePoints.push(new THREE.Vector2(-shapeW, shapeH));
+                shapePoints.push(new THREE.Vector2(-shapeW, -shapeH));
+
+                threadShape = new THREE.Shape(shapePoints);
+                extrudeSettings = {
+                    steps: pathSegments,
+                    extrudePath: path
+                };
+
+            } else if (shapeProfile == "lenticular") {
+
+                var shapePartA, shapePartB;
+                var startPiA = 1 / 6 * Math.PI;
+                var endPiA = 5 / 6 * Math.PI;
+                var startPiB = 7 / 6 * Math.PI;
+                var endPiB = 11 / 6 * Math.PI;
+                if (isWarp) {
+                    shapePartA = new THREE.EllipseCurve(yTubeRadius, 0, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiA, endPiA, false, 0.5 * Math.PI);
+                    shapePartB = new THREE.EllipseCurve(-yTubeRadius, 0, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiB, endPiB, false, 0.5 * Math.PI);
+                } else if (isWeft) {
+                    shapePartA = new THREE.EllipseCurve(0, -yTubeRadius, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiA, endPiA, false, 0);
+                    shapePartB = new THREE.EllipseCurve(0, yTubeRadius, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiB, endPiB, false, 0);
+                }
+                var shapePointsA = shapePartA.getPoints(Math.ceil(tp.radialSegments / 2));
+                var shapePointsB = shapePartB.getPoints(Math.ceil(tp.radialSegments / 2));
+                shapePointsB.shift();
+                shapePointsB.pop();
+                shapePointsA.push(...shapePointsB);
+                threadShape = new THREE.Shape(shapePointsA);
+                extrudeSettings = {
+                    steps: pathSegments,
+                    extrudePath: path
+                };
+
+            } else if (shapeProfile == "circular") {
+
+                if (tp.endCaps) {
+
+                    geometry = new THREE.TubeGeometry(path, pathSegments, xTubeRadius, radialSegments, false);
+
+                    var i, p0, p1, p2, uv0, uv1, uv2, face;
+
+                    var normal = new THREE.Vector3(0, 1, 0);
+                    var materialIndex = 0;
+
+                    var startShape = new THREE.Geometry();
+                    startShape.vertices.push(path.points[0]);
+                    startShape.vertices.push(...geometry.vertices.slice(0, radialSegments));
+
+                    var endShape = new THREE.Geometry();
+                    endShape.vertices.push(path.points[path.points.length - 1]);
+                    endShape.vertices.push(...geometry.vertices.slice(-radialSegments).reverse());
+
+                    [startShape, endShape].forEach(function(v, i) {
+                        for (i = 0; i < radialSegments; i++) {
+                            p0 = 0;
+                            p1 = i + 1;
+                            p2 = p1 == radialSegments ? 1 : i + 2;
+                            face = new THREE.Face3(p0, p1, p2, normal, null, materialIndex);
+                            v.faces.push(face);
+                            uv0 = new THREE.Vector2();
+                            uv1 = new THREE.Vector2();
+                            uv2 = new THREE.Vector2();
+                            v.faceVertexUvs[0].push([uv0, uv1, uv2]);
+                        }
+                        v.verticesNeedUpdate = true;
+                        v.elementsNeedUpdate = true;
+                        v.computeBoundingSphere();
+                        geometry.merge(v);
+                    });
+
+                    geometry.mergeVertices();
+                    geometry = new THREE.BufferGeometry().fromGeometry(geometry);
+
+                } else {
+
+                    geometry = new THREE.TubeBufferGeometry(path, pathSegments, xTubeRadius, radialSegments, false);
+
+                }
+
+            }
+
+            if (shapeProfile !== "circular") {
+
+                if (tp.smoothShading) {
+                    geometry = new THREE.ExtrudeGeometry(threadShape, extrudeSettings);
+                    geometry.mergeVertices();
+                    geometry.computeVertexNormals();
+                    geometry = new THREE.BufferGeometry().fromGeometry(geometry);
+                } else {
+                    geometry = new THREE.ExtrudeBufferGeometry(threadShape, extrudeSettings);
+                }
+
+            }
+
+            // console.log([threadSet, colorCode]);
+            // console.log(_this.materials);
+
+            threadMaterial = _this.materials[threadSet][colorCode];
+            threadMaterial.flatShading = !tp.smoothShading;
+
+            var thread = new THREE.Mesh(geometry, threadMaterial);
+
+            thread.name = "thread";
+
+            if (tp.showCurveNodes) {
+
+                var pathPoints = path.points;
+                var nodePointGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+                var nodePointMaterial = new THREE.PointsMaterial({
+                    color: hex,
+                    size: 0.04
+                });
+                var nodePoints = new THREE.Points(nodePointGeometry, nodePointMaterial);
+                nodePoints.userData = {
+                    type: "points",
+                    threadSet: threadSet,
+                    weavei: userData.weavei,
+                    threei: userData.threei,
+                    colorCode: userData.colorCode,
+                    threeId: userData.threeId,
+                    weaveId: userData.weaveId
+                };
+                nodePoints.name = "points";
+                this.fabric.add(nodePoints);
+                _this.childIds.push(nodePoints.id);
+
+                var geometry_line = new THREE.BufferGeometry().setFromPoints(pathPoints);
+                var material_line = new THREE.LineBasicMaterial({
+                    color: hex
+                });
+                var line = new THREE.Line(geometry_line, material_line);
+                line.userData = {
+                    type: "line",
+                    threadSet: threadSet,
+                    weavei: userData.weavei,
+                    threei: userData.threei,
+                    colorCode: userData.colorCode,
+                    threeId: userData.threeId,
+                    weaveId: userData.weaveId
+                };
+                line.name = "line";
+                this.fabric.add(line);
+                _this.childIds.push(line.id);
+
+            }
+
+            thread.castShadow = tp.castShadow;
+            thread.receiveShadow = tp.castShadow;
+            thread.material.opacity = _this.defaultOpacity;
+            thread.material.depthTest = _this.defaultDepthTest;
+
+            thread.userData = {
+                type: "tube",
+                threadSet: threadSet,
+                weavei: userData.weavei,
+                threei: userData.threei,
+                colorCode: userData.colorCode,
+                threeId: userData.threeId,
+                weaveId: userData.weaveId
+            };
+
+            _this.fabric.add(thread);
+            _this.threads.push(thread);
+            _this.childIds.push(thread.id);
+
+            return thread.id;
+
+            //_this.render();
+
+        },
+
+        removeThread: function(threadSet, threeIndex) {
+            let _this = this;
+            var threads = _this.fabric.children;
+            var threadId;
+            for (var i = _this.fabric.children.length - 1; i >= 0; --i) {
+                if (threads[i].userData.threadSet == threadSet && threads[i].userData.threei == threeIndex) {
+                    _this.childIds = _this.childIds.removeItem(threads[i].id);
+                    threadId = threads[i].id;
+                    _this.disposeNode(threads[i]);
+                    _this.fabric.remove(threads[i]);
+                }
+            }
+            return threadId;
+        },
+
+        removeFabric: function() {
+            var threads = this.fabric.children;
+            for (var i = threads.length - 1; i >= 0; i--) {
+                if (threads[i].name !== "axesArrows") {
+                    this.disposeNode(threads[i]);
+                    this.fabric.remove(threads[i]);
+                }
+            }
+            this.threads = [];
+            this.childIds = [];
+        },
+
+        animateThreeSceneTo: function(modelRotation = false, cameraPos = false, controlsTarget = false, cameraZoom = false) {
+
+            let _this = this;
+
+            return new Promise((resolve, reject) => {
+
+                var ez = Power4.easeInOut;
+                var duration = 1.5;
+                var tl = gsap.timeline({
+                    delay: 0,
+                    autoRemoveChildren: true,
+                    smoothChildTiming: true,
+                    onStart: function() {
+                        _this.controls.enabled = false;
+                        _this.animate = true;
+                        app.views.three.toolbar.disableItem("toolbar-three-change-view");
+                        Debug.item("Timeline.Status", "start", "three");
+                    },
+                    onUpdate: function() {
+                        _this.camera.updateProjectionMatrix();
+                        Debug.item("Timeline.Status", "updating", "three");
+                    },
+                    onComplete: function() {
+                        _this.controls.enabled = true;
+                        _this.animate = false;
+                        app.views.three.toolbar.enableItem("toolbar-three-change-view");
+                        Debug.item("Timeline.Status", "complete", "three");
+                        resolve();
+                    }
+                });
+
+                var c = this.camera;
+                var fr = this.fabric.rotation;
+                var co = this.controls.target;
+                var mr = modelRotation;
+                var cp = cameraPos;
+                var ct = controlsTarget;
+                var cz = cameraZoom;
+
+                if (modelRotation) {
+                    tl.add(gsap.to(fr, duration, { x: mr.x, y: mr.y, z: mr.z, ease: ez }), 0);
+                }
+
+                if (controlsTarget) {
+                    tl.add(gsap.to(co, duration, { x: ct.x, y: ct.y, z: ct.z, ease: ez }), 0);
+                }
+
+                if (cameraPos) {
+                    tl.add(gsap.to(c.position, duration, { x: cp.x, y: cp.y, z: cp.z, ease: ez }), 0);
+                    tl.add(gsap.to(c.rotation, duration, { x: -Math.PI/2, y: 0, z: 0, ease: ez }), 0);
+                }
+
+                if (cameraZoom) {
+                    tl.add(gsap.to(c, duration, { zoom: cz, ease: ez }), 0);
+                }
+                
+            });
+
+        },
+
+        resizeRenderer: function(width, height){
+            if (window.devicePixelRatio) {
+                this.renderer.setPixelRatio (window.devicePixelRatio);
+            }
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix ();
+            this.composer.setSize(width, height);
+            this.renderer.setSize (width, height);    
+            this.render();
+        },
+
+        // Three
+        render: function() {
+
+            if (this.scene) {
+
+                //this.controls.update();
+                //this.renderer.render( this.scene, this.camera );
+                this.composer.render();
+
+                var cameraPos = this.camera.position.clone();
+                var cameraRotation = this.camera.rotation.clone();
+                var controlsTarget = this.controls.target.clone();
+
+                this.rotationAxisLine.position.copy(controlsTarget);
+                tp.cameraPos.copy(cameraPos);
+                tp.controlsTarget.copy(controlsTarget);
+                var objectPos = new THREE.Vector3(0, 0, 0);
+                var distance = cameraPos.distanceTo(objectPos);
+
+                Debug.item("Camera x", Math.round(cameraPos.x * 1000) / 1000, "three");
+                Debug.item("Camera y", Math.round(cameraPos.y * 1000) / 1000, "three");
+                Debug.item("Camera z", Math.round(cameraPos.z * 1000) / 1000, "three");
+                Debug.item("Camera Zoom", Math.round(this.camera.zoom * 1000) / 1000, "three");
+
+                Debug.item("Camera Rx", Math.round(cameraRotation.x * 1000) / 1000, "three");
+                Debug.item("Camera Ry", Math.round(cameraRotation.y * 1000) / 1000, "three");
+                Debug.item("Camera Rz", Math.round(cameraRotation.z * 1000) / 1000, "three");
+
+                if (this.fabric) {
+                    var fabricRot = this.fabric.rotation;
+                    Debug.item("Fabric Rx", Math.round(fabricRot.x * 1000) / 1000, "three");
+                    Debug.item("Fabric Ry", Math.round(fabricRot.y * 1000) / 1000, "three");
+                    Debug.item("Fabric Rz", Math.round(fabricRot.z * 1000) / 1000, "three");
+                }
+
+                Debug.item("Azimuthal", Math.round(this.controls.getAzimuthalAngle() * 1000) / 1000, "three");
+                Debug.item("Polar", Math.round(this.controls.getPolarAngle() * 1000) / 1000, "three");
+                Debug.item("Distance", Math.round(distance * 1000) / 1000, "three");
+
+            }
+
+        },
+
+        startAnimation: function() {
+
+            let _this = this;
+
+            window.requestAnimationFrame(() => {
+
+                if (app.views.active == "three" && _this.animate) {
+                    const now = performance.now();
+                    while (_this.fps.length > 0 && _this.fps[0] <= now - 1000) {
+                        _this.fps.shift();
+                    }
+                    _this.fps.push(now);
+                    Debug.item("FPS", _this.fps.length, "three");
+                    _this.render();
+                }
+                _this.startAnimation();
+            });
+
+        },
+
+        postCreate: function() {
+
+            Debug.item("Geometries", this.renderer.info.memory.geometries, "three");
+            Debug.item("Textures", this.renderer.info.memory.textures, "three");
+            Debug.item("Calls", this.renderer.info.render.calls, "three");
+            Debug.item("Triangles", this.renderer.info.render.triangles, "three");
+            Debug.item("Points", this.renderer.info.render.points, "three");
+            Debug.item("Lines", this.renderer.info.render.lines, "three");
+
+        },
+
+        getFirstWarpWeft: function(threads) {
+            var set;
+            var firstIntersects = {
+                warp: false,
+                weft: false,
+                sets: []
+            };
+            for (var i = 0; i < threads.length; i++) {
+                set = threads[i].object.userData.threadSet;
+                if (!firstIntersects[set]) {
+                    firstIntersects.sets.push(set);
+                    firstIntersects[set] = threads[i].object;
+                    if (firstIntersects.warp && firstIntersects.weft) break;
+                }
+            }
+            return firstIntersects;
+        },
+
+        outlinePass: {
+            pass: undefined,
+            stickyMeshIds: [],
+            meshes: [],
+            setup: function() {
+                this.pass = new THREE.OutlinePass(new THREE.Vector2(app.frame.width, app.frame.height), q.three.scene, q.three.camera);
+                this.pass.edgeStrength = 10;
+                this.pass.edgeGlow = 0;
+                this.pass.edgeThickness = 0.5;
+                this.pass.pulsePeriod = 0;
+                this.pass.visibleEdgeColor.set("#ffffff");
+                this.pass.hiddenEdgeColor.set("#666666");
+                q.three.composer.addPass(this.pass);
+            },
+            add: function(mesh, makeSticky = false) {
+                if (!mesh) {
+                    return;
+                }
+                var meshId = mesh.id;
+                if (makeSticky) {
+                    this.stickyMeshIds.uniquePush(meshId);
+                    // console.log(["outline.add", mesh.id, makeSticky]);
+                }
+
+                var meshAlreadyOutlined = this.meshes.some(a => a.id === meshId);
+                if (!meshAlreadyOutlined) {
+                    this.meshes.push(mesh);
+                    this.pass.selectedObjects = this.meshes;
+                    q.three.render();
+                }
+            },
+            removeSticky: function(mesh) {
+                if (!mesh) {
+                    return;
+                }
+                if (this.stickyMeshIds.includes(mesh.id)) {
+                    this.stickyMeshIds = this.stickyMeshIds.remove(mesh.id);
+                    this.meshes = $.grep(this.meshes, function(outlineMesh) {
+                        return outlineMesh.id !== mesh.id;
+                    });
+                    this.pass.selectedObjects = this.meshes;
+                    q.three.render();
+                }
+            },
+            clear: function(clearSticky = false) {
+                let _this = this;
+                if (clearSticky) {
+                    this.stickyMeshIds = [];
+                    this.meshes = [];
+                } else {
+                    this.meshes = $.grep(this.meshes, function(mesh) {
+                        return _this.stickyMeshIds.includes(mesh.id);
+                    });
+                }
+                this.pass.selectedObjects = this.meshes;
+                q.three.render();
+            }
+        },
+
+        highlight: {
+            uuids: [],
+            add: function(mesh) {
+
+                if (!mesh) {
+                    return;
+                }
+                let _this = this;
+                var uuid = mesh.uuid;
+                var meshAlreadyHighlighted = this.uuids.some(a => a.uuid === uuid);
+                if (meshAlreadyHighlighted) {
+                    //this.meshes = this.outlineThreads.filter(threadObject => threadObject.uuid !== targetUUID);
+                } else {
+                    this.uuids.push(uuid);
+                    q.three.threads.forEach(function(thread, i) {
+                        if (!_this.uuids.includes(thread.uuid)) {
+                            thread.material.opacity = 0.25;
+                            thread.material.depthTest = false;
+                        }
+                    });
+                    var meshMaterialName = mesh.material.name;
+                    var cloneMaterial = mesh.material.clone();
+                    cloneMaterial.depthTest = true;
+                    cloneMaterial.opacity = 1;
+                    cloneMaterial.name = mesh.material.name + "-clone";
+                    mesh.material = cloneMaterial;
+                    cloneMaterial.needsUpdate = true;
+                    q.three.render();
+                }
+            },
+            clear: function() {
+                this.uuids = [];
+                var threads = q.three.fabric.children;
+                var set, code;
+                for (var i = threads.length - 1; i >= 0; i--) {
+                    if (threads[i].name == "thread") {
+                        set = threads[i].userData.threadSet;
+                        code = threads[i].userData.colorCode;
+                        if (threads[i].material.name !== set + "-" + code) {
+                            threads[i].material.name = set + "-" + code;
+                            threads[i].material = q.three.materials[set][code];
+                        }
+                        threads[i].material.opacity = q.three.defaultOpacity;
+                        threads[i].material.depthTest = q.three.defaultDepthTest;
+                    }
+                }
+                q.three.render();
+            }
+        },
+
+        getMeshByUUID: function(uuid) {
+            var threads = q.three.fabric.children;
+            for (var i = threads.length - 1; i >= 0; i--) {
+                if (threads[i].uuid == uuid) {
+                    return threads[i];
+                }
+            }
+        },
+
+        // q.three.doMouseInteraction
+        doMouseInteraction: function(type, which, canvasMouse) {
+
+            let _this = this;
+            var mx = (canvasMouse.x / app.frame.width) * 2 - 1;
+            var my = (canvasMouse.y / app.frame.height) * 2 - 1;
+            this.raycaster.setFromCamera({ x: mx, y: my }, this.camera);
+            const intersects = this.raycaster.intersectObjects(this.threads);
+            const firstIntersects = this.getFirstWarpWeft(intersects);
+
+            const sets = firstIntersects.sets;
+            if ( sets.length < 2 ) MouseTip.remove(1);
+            if ( sets.length === 0 ) MouseTip.remove(0);
+            sets.forEach( (set, i) => {
+                const setName = capitalFirst(set);
+                const threadData = firstIntersects[set].userData;
+                const threadi = Number(threadData.threei) + 1;
+                const code = threadData.colorCode;
+                const yarnId = q.palette.colors[code].yarnId;
+                const yarn = q.graph.yarns[yarnId].name;
+                MouseTip.text(i, setName + ": " + threadi + " (" + code + ") " + yarn);
+            });
+
+            // Debug.item("threeIntersection", warpThreei + ", " + weftThreei, "three");
+
+            if (tp.mouseHoverOutline && intersects.length) {
+                this.outlinePass.clear();
+                this.outlinePass.add(firstIntersects.warp);
+                this.outlinePass.add(firstIntersects.weft);
+            }
+            if (!intersects.length && this.outlinePass.meshes.length) {
+                this.outlinePass.clear();
+            }
+
+            if (tp.mouseHoverHighlight && intersects.length) {
+                this.highlight.clear();
+                this.highlight.add(firstIntersects.warp);
+                this.highlight.add(firstIntersects.weft);
+            }
+            if (!intersects.length && this.highlight.uuids.length) {
+                this.highlight.clear();
+            }
+
+            if (type == "dblclick" && which == 1 && !firstIntersects.warp && !firstIntersects.weft) {
+                this.outlinePass.clear(true);
+            }
+
+            if (type == "dblclick" && which == 1 && firstIntersects.warp && firstIntersects.weft) {
+
+                var endIndex = firstIntersects.warp.userData.weavei;
+                var pickIndex = firstIntersects.weft.userData.weavei;
+                q.graph.set(0, "weave", "toggle", {
+                    col: endIndex + 1,
+                    row: pickIndex + 1,
+                    trim: false
+                });
+                _this.weave2D8 = q.graph.weave2D8.tileFill(tp.warpThreads, tp.weftThreads, 1 - tp.warpStart, 1 - tp.weftStart);
+
+                var replaceThreads = [];
+                _this.threads = $.grep(_this.threads, function(thread, i) {
+                    if (thread.userData.weaveId.in("warp-" + endIndex, "weft-" + pickIndex)) {
+                        replaceThreads.push(thread);
+                        return false;
+                    } else {
+                        return true;
+                    }
+                });
+
+                replaceThreads.forEach(function(thread) {
+                    var threeId = thread.userData.threeId;
+                    var threeIdParts = threeId.split("-");
+                    var yarnSet = threeIdParts[0];
+                    var threeIndex = Number(threeIdParts[1]);
+                    var removeMeshId = _this.removeThread(yarnSet, threeIndex);
+                    var newMeshId = _this.addThread(yarnSet, threeIndex);
+                    if (tp.mouseHoverOutline) {
+                        var makeSticky = _this.outlinePass.stickyMeshIds.includes(removeMeshId);
+                        _this.outlinePass.removeSticky(thread);
+                        var newThread = q.three.scene.getObjectById(newMeshId);
+                        _this.outlinePass.add(newThread, makeSticky);
+                        _this.outlinePass.meshes = $.grep(_this.outlinePass.meshes, function(mesh) {
+                            return _this.outlinePass.stickyMeshIds.includes(mesh.id);
+                        });
+                    }
+                });
+                _this.render();
+                _this.doMouseInteraction("mousemove", 0, canvasMouse);
+            }
+
+            if (type == "click" && which == 1) {
+                if (tp.mouseHoverOutline && intersects.length) {
+                    var stickyWarpClick = firstIntersects.warp && this.outlinePass.stickyMeshIds.includes(firstIntersects.warp.id);
+                    var stickyWeftClick = firstIntersects.weft && this.outlinePass.stickyMeshIds.includes(firstIntersects.weft.id);
+                    if (stickyWarpClick && stickyWeftClick) {
+                        this.outlinePass.removeSticky(firstIntersects.warp);
+                        this.outlinePass.removeSticky(firstIntersects.weft);
+                    } else if (stickyWarpClick && !firstIntersects.weft) {
+                        this.outlinePass.removeSticky(firstIntersects.warp);
+                    } else if (stickyWeftClick && !firstIntersects.warp) {
+                        this.outlinePass.removeSticky(firstIntersects.weft);
+                    } else {
+                        this.outlinePass.add(firstIntersects.warp, true);
+                        this.outlinePass.add(firstIntersects.weft, true);
+                    }
+                }
+            }
+
+        }
+
+    };
+
+    $(document).on("mousedown mouseup", q.ids("three"), function(e) {
+        app.mouse.event("three", e, function(type, which, x, y) {
+            var canavsMouse = getGraphMouse("three", x, y);
+            q.three.doMouseInteraction(type, which, canavsMouse);
+        });
+    });
+
+    // ----------------------------------------------------------------------------------
     // Model Object & Methods
     // ----------------------------------------------------------------------------------
-
     // All dimentions in Meters Scale 10;
 
     var globalModel = {
@@ -3160,6 +4934,8 @@ $(function() {
         modelMeshes: [],
 
         sceneCreated: false,
+
+        previousMousePosition: { x: 0, y: 0 },
 
         fps: [],
 
@@ -3883,7 +5659,7 @@ $(function() {
         // q.model.setInterface:
         setInterface: async function(instanceId = 0, render = true) {
 
-            //console.log(["q.model.setInterface", instanceId]);
+            console.log(["q.model.setInterface", instanceId]);
             //logTime("q.model.setInterface("+instanceId+")");
 
             var modelBoxL = 0;
@@ -4690,7 +6466,7 @@ $(function() {
                 let animationTime = 1.5; // seconds
                 let animationEase = Power4.easeInOut;
 
-                var tl = new TimelineLite({
+                var tl = gsap.timeline({
                     delay: 0,
                     onComplete: function() {
                         _this.controls.enabled = true;
@@ -4743,7 +6519,7 @@ $(function() {
                     mp.autoRotate = false;
                     app.views.model.toolbar.setItemState("toolbar-model-rotate", false);
                     this.model.rotation.y = normalizeToNearestRotation(this.model.rotation.y);
-                    tl.add(TweenLite.to(_this.model.rotation, animationTime, {
+                    tl.add(gsap.to(_this.model.rotation, animationTime, {
                         x: p.modelRotation[0],
                         y: p.modelRotation[1],
                         z: p.modelRotation[2],
@@ -4752,7 +6528,7 @@ $(function() {
                 }
 
                 if (p.cameraPos) {
-                    tl.add(TweenLite.to(_this.camera.position, animationTime, {
+                    tl.add(gsap.to(_this.camera.position, animationTime, {
                         x: p.cameraPos[0],
                         y: p.cameraPos[1],
                         z: p.cameraPos[2],
@@ -4761,7 +6537,7 @@ $(function() {
                 }
 
                 if (p.cameraRotation) {
-                    tl.add(TweenLite.to(_this.camera.rotation, animationTime, {
+                    tl.add(gsap.to(_this.camera.rotation, animationTime, {
                         x: p.cameraRotation[0],
                         y: p.cameraRotation[1],
                         z: p.cameraRotation[2],
@@ -4770,7 +6546,7 @@ $(function() {
                 }
 
                 if (p.controlsTarget) {
-                    tl.add(TweenLite.to(_this.controls.target, animationTime, {
+                    tl.add(gsap.to(_this.controls.target, animationTime, {
                         x: p.controlsTarget[0],
                         y: p.controlsTarget[1],
                         z: p.controlsTarget[2],
@@ -4779,7 +6555,7 @@ $(function() {
                 }
 
                 if (p.spotLightTarget) {
-                    tl.add(TweenLite.to(_this.lights.spot.target.position, animationTime, {
+                    tl.add(gsap.to(_this.lights.spot.target.position, animationTime, {
                         x: p.spotLightTarget[0],
                         y: p.spotLightTarget[1],
                         z: p.spotLightTarget[2],
@@ -4933,7 +6709,7 @@ $(function() {
             });
         },
 
-        createWeaveMaterial: function() {
+        createWeaveMaterial: async function() {
 
             let _this = this;
 
@@ -4955,21 +6731,22 @@ $(function() {
             let ctx_map = q.ctx(61, "noshow", "modelTextureMap", canvasW, canvasH, true, false);
             let loadingbar = new Loadingbar("simulationRenderTo", "Preparing Simulation", true, true);
 
-            q.simulation.renderTo(ctx_map, canvasW, canvasH, 0, 0, xScale, yScale, sp.renderQuality, async function() {
-                let ctx_output = q.ctx(61, "noshow", "canvas_simulation_output", canvasW, canvasH, true, false);
-                await picaResize(ctx_map, ctx_output);
-                let weaveImg = new Image();
-                weaveImg.onload = function() {
-                    _this.createCanvasMaterial({
-                        type: "weave",
-                        image: weaveImg,
-                        map_width: renderW.mm,
-                        map_height: renderH.mm
-                    });
-                };
-                weaveImg.src = ctx_output.canvas.toDataURL("image/png");
+            await q.simulation.renderTo(ctx_map, canvasW, canvasH, 0, 0, xScale, yScale, sp.renderQuality);
+            let ctx_output = q.ctx(61, "noshow", "canvas_simulation_output", canvasW, canvasH, true, false);
+
+            await picaResize(ctx_map, ctx_output);
+
+            let weaveImg = new Image();
+            weaveImg.onload = function() {
+                _this.createCanvasMaterial({
+                    type: "weave",
+                    image: weaveImg,
+                    map_width: renderW.mm,
+                    map_height: renderH.mm
+                });
                 loadingbar.remove();
-            });
+            };
+            weaveImg.src = ctx_output.canvas.toDataURL("image/png");
 
         },
 
@@ -5628,8 +7405,8 @@ $(function() {
                     // scene.quaternion.copy(endOrientation).multiply(gyroTrackingDelta);
 
                     var deltaMove = {
-                        x: app.mouse.x - previousMousePosition.x,
-                        y: app.mouse.y - previousMousePosition.y
+                        x: app.mouse.x - q.model.previousMousePosition.x,
+                        y: app.mouse.y - q.model.previousMousePosition.y
                     };
 
                     var deltaRotationQuaternion = new THREE.Quaternion()
@@ -5649,10 +7426,8 @@ $(function() {
                     mp.viewPresets.update("user");
                 }
 
-                previousMousePosition = {
-                    x: app.mouse.x,
-                    y: app.mouse.y
-                };
+                q.model.previousMousePosition.x = app.mouse.x;
+                q.model.previousMousePosition.y = app.mouse.y;
 
             }
 
@@ -5661,1872 +7436,6 @@ $(function() {
         }
 
     };
-
-    let previousMousePosition = {
-        x: 0,
-        y: 0
-    };
-
-    // ----------------------------------------------------------------------------------
-    // Three Object & Methods
-    // ----------------------------------------------------------------------------------
-    var globalThree = {
-
-        status: {
-            scene: false,
-            textures: false,
-            materials: false,
-            fabric: false
-        },
-
-        fps: [],
-
-        renderer: undefined,
-        scene: undefined,
-        camera: undefined,
-        controls: undefined,
-        model: undefined,
-        lights: {
-            ambient: undefined,
-            point: undefined,
-            spot: undefined
-        },
-
-        raycaster: new THREE.Raycaster(),
-
-        textures: {
-
-            needsUpdate: true,
-            pending: 0,
-            threadBumpMap: {
-                url: "three/textures/bump_yarn.png",
-                val: undefined
-            },
-            test512: {
-                url: "three/textures/uvgrid_01.jpg",
-                val: undefined
-            }
-
-        },
-
-        materials: {
-            needsUpdate: true,
-            default: {},
-            fabric: {},
-            warp: {},
-            weft: {}
-        },
-
-        fabric: undefined,
-        threads: [],
-        childIds: [],
-
-        composer: undefined,
-
-        effectFXAA: undefined,
-        renderPass: undefined,
-
-        sceneCreated: false,
-
-        animate: false,
-
-        modelParams: {
-            initRotation: new THREE.Vector3(0, 0, 0)
-        },
-
-        currentPreset: 0,
-        rotationPresets: [
-            [0, 0, 0],
-            [0, 0, -180],
-            [0, 0, 0],
-            [-90, 0, 0],
-            [-90, 90, 0],
-            [-30, 45, 0],
-            [-30, 0, 0],
-        ],
-
-        warpStart: 1,
-        weftStart: 1,
-        warpThreads: 12,
-        weftThreads: 12,
-
-        setup: {
-            showAxes: false,
-            bgColor: "white"
-        },
-
-        structureDimensions: {
-            x: 0,
-            y: 0,
-            z: 0
-        },
-
-        threadDisplacement: {
-            x: 0, // End to End Distance
-            y: 0, // Layer Spacing
-            z: 0 // Pick to Pick Distance
-        },
-
-        frustumSize: 7,
-
-        weave2D8: [],
-
-        warpRadius: 0,
-        warpRadiusX: 0,
-        warpRadiusY: 0,
-        weftRadius: 0,
-        weftRadiusX: 0,
-        weftRadiusY: 0,
-
-        maxFabricThickness: 0,
-
-        defaultOpacity: 0,
-        defaultDepthTest: true,
-
-        axes: undefined,
-        rotationAxisLine: undefined,
-
-        mouseAnimate: false,
-
-        // Three
-        params: {
-
-            animate: false,
-
-            initCameraUp: new THREE.Vector3(0, 1, 0),
-            initCameraPos: new THREE.Vector3(0, 6, 0),
-            cameraPos: new THREE.Vector3(0, 6, 0),
-            initControlsTarget: new THREE.Vector3(0, 0, 0),
-            controlsTarget: new THREE.Vector3(0, 0, 0),
-            initFabricRotation: new THREE.Vector3(0, 0, 0),
-            fabricRotation: new THREE.Vector3(0, 0, 0),
-
-            structure: [
-
-                ["select", "Yarn Configs", "yarnConfig", [
-                    ["biset", "Bi-Set"],
-                    ["palette", "Palette"]
-                ], {
-                    col: "2/5"
-                }],
-
-                ["select", "Warp", "warpYarnId", [ ["system_0", "Default"] ], { col: "2/3", hide: true }],
-                ["select", "Weft", "weftYarnId", [ ["system_0", "Default"] ], { col: "2/3", hide: true }],
-
-                ["section", "Thread Density"],
-                ["number", "Warp Density", "warpDensity", 55, {
-                    col: "1/3",
-                    min: 1,
-                    max: 1000,
-                    precision: 2
-                }],
-                ["number", "Weft Density", "weftDensity", 55, {
-                    col: "1/3",
-                    min: 1,
-                    max: 1000,
-                    precision: 2
-                }],
-
-                ["section", "Fabric Layers"],
-                ["check", "Layer Structure", "layerStructure", 0],
-                ["text", false, "layerStructurePattern", 1, {
-                    col: "1/1",
-                    hide: true
-                }],
-                ["number", "Layer Distance (mm)", "layerDistance", 10, {
-                    col: "1/3",
-                    min: 0,
-                    max: 1000,
-                    hide: true
-                }],
-
-                ["control", "save", "play"]
-
-            ],
-
-            render: [
-
-                ["header", "Render Area"],
-                ["number", "Warp Start", "warpStart", 1, {
-                    col: "1/3"
-                }],
-                ["number", "Weft Start", "weftStart", 1, {
-                    col: "1/3"
-                }],
-                ["number", "Warp Threads", "warpThreads", 4, {
-                    col: "1/3",
-                    min: 2,
-                    max: 120
-                }],
-                ["number", "Weft Threads", "weftThreads", 4, {
-                    col: "1/3",
-                    min: 2,
-                    max: 120
-                }],
-
-                ["header", "Render Quality"],
-                ["number", "Radius Segments", "radialSegments", 8, {
-                    col: "1/3",
-                    min: 3,
-                    max: 36
-                }],
-                ["number", "Tubular Segments", "tubularSegments", 8, {
-                    col: "1/3",
-                    min: 1,
-                    max: 36
-                }],
-                ["check", "Show Curve Nodes", "showCurveNodes", 0, {
-                    col: "1/3"
-                }],
-                ["check", "Show Wireframe", "showWireframe", 0, {
-                    col: "1/3"
-                }],
-                ["check", "Smooth Shading", "smoothShading", 1, {
-                    col: "1/3"
-                }],
-                ["check", "End Caps", "endCaps", 1, {
-                    col: "1/3"
-                }],
-
-                ["control", "save", "play"]
-
-            ],
-
-            filters: [
-
-                ["check", "Hide Colors", "hideColors", 0, {
-                    col: "1/3"
-                }],
-                ["text", false, "hiddenColors", "", {
-                    col: "1/1",
-                    hide: true
-                }],
-                ["control", "save", "play"]
-
-            ],
-
-            scene: [
-
-                ["select", "Projection", "projection", [
-                    ["perspective", "PERSP"],
-                    ["orthographic", "ORTHO"]
-                ], {
-                    col: "1/2"
-                }],
-                ["select", "Background", "bgType", [
-                    ["solid", "Solid"],
-                    ["gradient", "Gradient"],
-                    ["transparent", "Transparent"],
-                    ["image", "Image"]
-                ], {
-                    col: "1/2"
-                }],
-                ["color", "Background Color", "bgColor", "#FFFFFF", {
-                    col: "1/3"
-                }],
-                ["check", "Show Axes", "showAxes", 0, {
-                    col: "1/3"
-                }],
-                ["check", "Hover Outline", "mouseHoverOutline", 0, {
-                    col: "1/3"
-                }],
-                ["check", "Hover Highlight", "mouseHoverHighlight", 0, {
-                    col: "1/3"
-                }],
-                ["range", "Light Temperature", "lightTemperature", 6600, {
-                    col: "1/1",
-                    min: 2700,
-                    max: 7500,
-                    step: 100
-                }],
-                ["range", "Light Intensity", "lightsIntensity", 0.5, {
-                    col: "1/1",
-                    min: 0,
-                    max: 1,
-                    step: 0.05
-                }],
-                ["check", "Cast Shadow", "castShadow", 1, {
-                    col: "1/3"
-                }],
-                ["control"]
-
-            ]
-
-        },
-
-        exportGLTF: function() {
-
-            var loadingbar = new Loadingbar("exportGLTF", "Exporting 3D Model", false);
-            globalThree.resetPosition(function() {
-                tp.showAxes = false;
-                globalThree.axes.visible = false;
-                globalThree.render();
-
-                var options = {
-                    trs: false,
-                    onlyVisible: true,
-                    truncateDrawRange: false,
-                    binary: false,
-                    forceIndices: false,
-                    forcePowerOfTwoTextures: false
-                };
-                var exporter = new THREE.GLTFExporter();
-                exporter.parse(globalThree.fabric, function(gltf) {
-                    if (gltf instanceof ArrayBuffer) {
-                        saveArrayBufferAsFile(gltf, "scene.glb");
-                    } else {
-                        var output = JSON.stringify(gltf, null, 2);
-                        saveStringAsFile(output, "weave3d.gltf");
-                    }
-                    loadingbar.remove();
-                }, options);
-            });
-
-        },
-
-        applyShadowSetting: function() {
-
-            let _this = this;
-
-            q.three.createScene(function() {
-                _this.lights.directional0.castShadow = tp.castShadow;
-                var threads = _this.fabric.children;
-                for (var i = threads.length - 1; i >= 0; --i) {
-                    if (threads[i].name == "thread") {
-                        threads[i].castShadow = tp.castShadow;
-                        threads[i].receiveShadow = tp.castShadow;
-                    }
-                }
-                _this.render();
-            });
-
-        },
-
-        resetPosition: function(callback) {
-
-            this.currentPreset = 0;
-            this.animateThreeSceneTo(this.modelParams.initRotation, tp.initCameraPos, tp.initControlsTarget, callback);
-
-        },
-
-        changeView: function(index = false) {
-
-            if (!index) {
-                index = loopNumber(this.currentPreset + 1, this.rotationPresets.length);
-            }
-            this.currentPreset = index;
-            var pos = this.rotationPresets[index];
-            var modelRotation = new THREE.Vector3(toRadians(pos[0]), toRadians(pos[1]), toRadians(pos[2]));
-            globalThree.animateThreeSceneTo(modelRotation);
-
-        },
-
-        // q.three.setInterface:
-        setInterface: async function(instanceId = 0, render = true) {
-
-            // console.log(["globalThree.setInterface", instanceId]);
-            //logTime("globalThree.setInterface("+instanceId+")");
-
-            var threeBoxL = 0;
-            var threeBoxB = 0;
-
-            var threeBoxW = app.frame.width - threeBoxL;
-            var threeBoxH = app.frame.height - threeBoxB;
-
-            $("#three-container").css({
-                "width": threeBoxW,
-                "height": threeBoxH,
-                "left": threeBoxL,
-                "bottom": threeBoxB,
-            });
-
-            q.position.update("three");
-
-            if (app.views.active !== "three" || !render) return;
-
-            await q.three.createScene();
-
-            globalThree.perspectiveCamera.aspect = app.frame.width / app.frame.height;
-            var aspect = app.frame.width / app.frame.height;
-            var frustumSize = globalThree.frustumSize;
-            globalThree.orthographicCamera.left = frustumSize * aspect / -2;
-            globalThree.orthographicCamera.right = frustumSize * aspect / 2;
-            globalThree.orthographicCamera.top = frustumSize / 2;
-            globalThree.orthographicCamera.bottom = frustumSize / -2;
-
-            globalThree.renderer.setSize(app.frame.width, app.frame.height);
-            globalThree.perspectiveCamera.updateProjectionMatrix();
-            globalThree.orthographicCamera.updateProjectionMatrix();
-            globalThree.composer.setSize(app.frame.width, app.frame.height);
-            globalThree.setBackground();
-            globalThree.render();
-
-            //logTimeEnd("globalThree.setInterface("+instanceId+")");
-
-        },
-
-        setBackground: async function() {
-            if (!this.composer) return;
-            await setSceneBackground(this.renderer, this.scene, "#three-container", tp.bgType, tp.bgColor);
-            q.three.render();
-        },
-
-        // q.three.createScene:
-        createScene: function(callback = false) {
-
-            return new Promise((resolve, reject) => {
-
-                if (this.status.scene) return resolve();
-
-                let _this = globalThree;
-
-                _this.renderer = new THREE.WebGLRenderer({
-                    antialias: true,
-                    alpha: true,
-                    preserveDrawingBuffer: true
-                });
-
-                _this.renderer.setPixelRatio(q.pixelRatio);
-                _this.renderer.setSize(app.frame.width, app.frame.height);
-
-                _this.renderer.physicallyCorrectLights = true;
-                _this.renderer.shadowMap.enabled = true;
-                _this.renderer.shadowMapSoft = true;
-                _this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-                _this.renderer.shadowMap.bias = 0.0001;
-
-                _this.renderer.outputEncoding = THREE.sRGBEncoding;
-
-                Debug.item("maxAnisotropy", _this.maxAnisotropy, "three");
-                Debug.item("maxTextureSize", _this.renderer.capabilities.maxTextureSize, "three");
-
-                var container = document.getElementById("three-container");
-                container.innerHTML = "";
-                container.appendChild(_this.renderer.domElement);
-                _this.renderer.domElement.id = "threeDisplay";
-                $("#threeDisplay").addClass('graph-canvas');
-                q.canvas.threeDisplay = _this.renderer.domElement;
-
-                // scene
-                _this.scene = new THREE.Scene();
-
-                // cameras
-                var aspect = app.frame.width / app.frame.height;
-                var frustumSize = _this.frustumSize;
-                _this.perspectiveCamera = new THREE.PerspectiveCamera(45, aspect, 0.1, 500);
-                _this.orthographicCamera = new THREE.OrthographicCamera(frustumSize * aspect / -2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / -2, -200, 500);
-                _this.camera = tp.projection == "perspective" ? _this.perspectiveCamera : _this.orthographicCamera;
-
-                _this.scene.add(_this.camera);
-                //_this.scene.add(new THREE.CameraHelper(_this.camera));
-
-                // controls
-                _this.controls = new THREE.OrbitControls(_this.camera, _this.renderer.domElement);
-                _this.controls.minDistance = 1;
-                _this.controls.maxDistance = 100;
-                _this.controls.enableKeys = false;
-                _this.controls.screenSpacePanning = true;
-
-                //_this.controls.minPolarAngle = 0;
-                //_this.controls.maxPolarAngle = Math.PI/1.8;
-
-                // _this.controls.enableDamping = true;
-                // _this.controls.dampingFactor = 0.05;
-                // _this.controls.rotateSpeed = 0.1;
-
-                // _this.controls.autoRotate = true;
-                // _this.controls.autoRotateSpeed = 1;
-
-                _this.camera.position.copy(tp.initCameraPos);
-                _this.controls.target.copy(tp.initControlsTarget);
-                _this.controls.update();
-
-                _this.controls.addEventListener("change", function() {
-                    _this.render();
-                });
-
-                _this.fabric = new THREE.Group();
-                _this.scene.add(_this.fabric);
-                var initRotation = _this.modelParams.initRotation;
-                _this.fabric.rotation.set(initRotation.x, initRotation.y, initRotation.z);
-
-                // Custom Axes
-                _this.axes = new THREE.Group();
-                var xArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xFF0000);
-                var yArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 1), new THREE.Vector3(0, 0, 0), 1, 0x00FF00);
-                var zArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0), 1, 0x0000FF);
-                xArrow.name = "axes-arrow-x";
-                yArrow.name = "axes-arrow-y";
-                zArrow.name = "axes-arrow-z";
-                _this.axes.add(xArrow);
-                _this.axes.add(yArrow);
-                _this.axes.add(zArrow);
-                _this.axes.name = "axes";
-                _this.fabric.add(_this.axes);
-                _this.axes.visible = tp.showAxes;
-
-                _this.setBackground();
-
-                var line_material = new THREE.LineBasicMaterial({
-                    color: 0x999999
-                });
-                var line_geometry = new THREE.Geometry();
-                line_geometry.vertices.push(new THREE.Vector3(0, -10, 0));
-                line_geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-                line_geometry.vertices.push(new THREE.Vector3(0, 10, 0));
-                _this.rotationAxisLine = new THREE.Line(line_geometry, line_material);
-                _this.scene.add(_this.rotationAxisLine);
-                _this.rotationAxisLine.visible = tp.showAxes;
-
-                _this.composerSetup();
-
-                _this.setLights();
-
-                _this.status.scene = true;
-                _this.render();
-                _this.startAnimation();
-                resolve();
-
-            });
-
-        },
-
-        // q.three.setLights;
-        setLights: function() {
-
-            let _this = this;
-            var _lights = _this.lights;
-
-            var kelvin = tp.lightTemperature;
-            var lh_rgb = kelvinToRGB(kelvin);
-            var lh = rgb_hex(lh_rgb.r, lh_rgb.g, lh_rgb.b, "0x");
-
-            Debug.item("lightTemperatureHEX", lh_rgb.r + "," + lh_rgb.g + "," + lh_rgb.b, "three");
-
-            lh = parseInt(lh, 16);
-
-            var li = tp.lightsIntensity;
-
-            var ai = 4 * li;
-            var pi = 30 * li;
-            var si = 300 * li;
-            var fi = 150 * li;
-            var hi = 3 * li;
-            var di = 3 * li;
-
-            if (!_lights.ambient) {
-                _lights.ambient = new THREE.AmbientLight(lh, ai);
-                this.scene.add(_lights.ambient);
-            } else {
-                _lights.ambient.intensity = ai;
-                _lights.ambient.color.setHex(lh);
-            }
-
-            if (!_lights.directional0) {
-
-                _lights.directional0 = new THREE.DirectionalLight(lh, di);
-                _lights.directional0.position.set(-10, 10, -10);
-                this.scene.add(_lights.directional0);
-
-                _lights.directional0.shadow.bias = -0.0001;
-                _lights.directional0.shadow.mapSize.width = 512;
-                _lights.directional0.shadow.mapSize.height = 512;
-                _lights.directional0.shadow.camera.near = 0.5;
-                _lights.directional0.shadow.camera.far = 100;
-
-                _lights.directional1 = new THREE.DirectionalLight(lh, di);
-                _lights.directional1.position.set(10, -10, 10);
-                this.scene.add(_lights.directional1);
-
-            } else {
-                _lights.directional0.intensity = di;
-                _lights.directional0.color.setHex(lh);
-
-                _lights.directional1.intensity = di;
-                _lights.directional1.color.setHex(lh);
-            }
-
-            _this.lights.directional0.castShadow = tp.castShadow;
-
-            q.three.render();
-
-        },
-
-        composerSetup: function() {
-            globalThree.composer = new THREE.EffectComposer(globalThree.renderer);
-            globalThree.renderPass = new THREE.RenderPass(globalThree.scene, globalThree.camera);
-            globalThree.composer.addPass(globalThree.renderPass);
-
-            this.outlinePass.setup();
-
-            globalThree.effectFXAA = new THREE.ShaderPass(THREE.FXAAShader);
-            globalThree.effectFXAA.uniforms.resolution.value.set(1 / app.frame.width, 1 / app.frame.height);
-            globalThree.composer.addPass(globalThree.effectFXAA);
-
-        },
-
-        swithCameraTo: function(projection) {
-
-            var currentCamera = this.camera.isPerspectiveCamera ? "perspective" : this.camera.isOrthographicCamera ? "orthographic" : "unknown";
-            if (projection !== currentCamera) {
-
-                var cameraZoom = this.camera.zoom;
-                var cameraPos = this.camera.position.clone();
-                var cameraRotation = this.camera.rotation.clone();
-
-                var cameraMatrix = this.camera.matrix.clone();
-                var controlsTarget = this.controls.target.clone();
-                var controlsPos = this.controls.position0.clone();
-                var quaternion = this.camera.quaternion.clone();
-
-                this.camera = projection == "orthographic" ? this.orthographicCamera : this.perspectiveCamera;
-
-                globalThree.composerSetup();
-                this.controls.object = this.camera;
-                this.controls.target.copy(controlsTarget);
-                this.camera.position.copy(cameraPos);
-                this.camera.rotation.copy(cameraRotation);
-                this.camera.matrix.copy(cameraMatrix);
-                this.camera.quaternion.copy(quaternion);
-                this.camera.updateProjectionMatrix();
-
-                if (projection == "orthographic") {
-                    var objectPos = new THREE.Vector3(0, 0, 0);
-                    var distance = this.camera.position.distanceTo(objectPos);
-                    this.orthographicCamera.zoom = 9 / distance;
-                    this.orthographicCamera.updateProjectionMatrix();
-                }
-
-                if (projection == "perspective") {
-                    this.perspectiveCamera.position.normalize().multiplyScalar(9 / this.orthographicCamera.zoom);
-                    this.perspectiveCamera.updateProjectionMatrix();
-                }
-
-                this.controls.update();
-                q.three.render();
-            }
-
-        },
-
-        disposeHierarchy: function(node, callback) {
-            for (var i = node.children.length - 1; i >= 0; i--) {
-                var child = node.children[i];
-                this.disposeHierarchy(child, callback);
-                callback(child);
-            }
-        },
-
-        disposeNode: function(parentObject) {
-            parentObject.traverse(function(node) {
-                if (node instanceof THREE.Mesh) {
-                    if (node.geometry) {
-                        node.geometry.dispose();
-                    }
-                    if (node.material) {
-                        var materialArray;
-                        if (node.material instanceof THREE.MeshFaceMaterial || node.material instanceof THREE.MultiMaterial) {
-                            materialArray = node.material.materials;
-                        } else if (node.material instanceof Array) {
-                            materialArray = node.material;
-                        }
-                        if (materialArray) {
-                            materialArray.forEach(function(mtrl, idx) {
-                                if (mtrl.map) mtrl.map.dispose();
-                                if (mtrl.lightMap) mtrl.lightMap.dispose();
-                                if (mtrl.bumpMap) mtrl.bumpMap.dispose();
-                                if (mtrl.normalMap) mtrl.normalMap.dispose();
-                                if (mtrl.specularMap) mtrl.specularMap.dispose();
-                                if (mtrl.envMap) mtrl.envMap.dispose();
-                                mtrl.dispose();
-                            });
-                        } else {
-                            if (node.material.map) node.material.map.dispose();
-                            if (node.material.lightMap) node.material.lightMap.dispose();
-                            if (node.material.bumpMap) node.material.bumpMap.dispose();
-                            if (node.material.normalMap) node.material.normalMap.dispose();
-                            if (node.material.specularMap) node.material.specularMap.dispose();
-                            if (node.material.envMap) node.material.envMap.dispose();
-                            node.material.dispose();
-                        }
-                    }
-                }
-            });
-        },
-
-        disposeScene: function() {
-
-            this.disposeHierarchy(this.scene, this.disposeNode);
-            this.renderer.dispose();
-            this.renderer.forceContextLoss();
-            //this.renderer.context = undefined;
-            this.renderer.domElement = undefined;
-            this.status.scene = false;
-
-        },
-
-        disposeMaterials: function() {
-            let _this = this;
-            ["warp", "weft"].forEach(function(set) {
-                for (let c in _this.materials[set]) {
-                    if ( _this.materials[set].hasOwnProperty(c) ){
-                        _this.materials[set][c].dispose();
-                        _this.materials[set][c] = undefined;
-                    }
-                }
-                _this.materials[set] = [];
-            });
-        },
-
-        // Three
-        loadTextures: function (callback) {
-
-            let _this = this;
-
-            if ( _this.textures.needsUpdate ) {
-
-                var loadingbar = new Loadingbar("threeloadingtextures", "Loading Textures");
-                var loader = new THREE.TextureLoader();
-
-                for (let id in _this.textures) {
-
-                    if ( _this.textures[id].url ) {
-
-                        _this.textures.pending++;
-
-                        _this.textures[id].val = loader.load(_this.textures[id].url, function (texture) {
-
-                            texture.wrapS = THREE.RepeatWrapping;
-                            texture.wrapT = THREE.RepeatWrapping;
-                            texture.rotation = toRadians(45);
-                            texture.repeat.set(1, 1);
-                            texture.offset.set(0, 0);
-                            texture.anisotropy = _this.renderer.capabilities.getMaxAnisotropy();
-                            texture.needsUpdate = true;
-
-                            _this.render();
-
-                            _this.textures.pending--;
-
-                            if ( !_this.textures.pending ) {
-
-                                loadingbar.remove();
-                                _this.textures.needsUpdate = false;
-
-                                Debug.input("number", "Texture Rotation Deg", 45, "live", function (val) {
-                                    globalThree.materials.weft.b.bumpMap.rotation = toRadians(Number(val));
-                                    _this.render();
-                                });
-
-                                Debug.input("text", "Texture Repeat 'x,y'", "1,1", "live", function (val) {
-                                    val = val.split(",");
-                                    let val0 = Number(val[0]);
-                                    let val1 = Number(val[1]);
-                                    globalThree.materials.weft.b.bumpMap.repeat.set(val[0], val[1]);
-                                    _this.render();
-                                });
-
-                                Debug.input("text", "Texture Offset 'x,y'", "0,0", "live", function (val) {
-                                    val = val.split(",");
-                                    let val0 = Number(val[0]);
-                                    let val1 = Number(val[1]);
-                                    globalThree.materials.weft.baseCanvas.bumpMap.offset.set(val[0], val[1]);
-                                    _this.render();
-                                });
-
-                                if (typeof callback === "function") callback();
-
-                            }
-
-                        });
-
-                    }
-
-                }
-
-            } else {
-
-                if (typeof callback === "function") callback();
-
-            }
-
-        },
-
-        // Three
-        createThreadMaterials: function(callback) {
-
-            return new Promise((resolve, reject) => {
-
-                var bumpMap, color, threadLength, threadDia, renderSize;
-                let _this = this;
-
-                _this.loadTextures(function() {
-
-                    var loadingbar = new Loadingbar("threecreatingmaterials", "Creating Materials");
-
-                    if (!_this.status.materials) {
-
-                        _this.disposeMaterials();
-
-                        ["warp", "weft"].forEach(function(set) {
-
-                            q.pattern.colors(set).forEach(function(colorCode, i) {
-
-                                color = q.palette.colors[colorCode];
-
-                                _this.materials[set][colorCode] = new THREE.MeshStandardMaterial({
-                                    color: color.hex,
-                                    side: THREE.FrontSide,
-                                    roughness: 1,
-                                    metalness: 0,
-                                    transparent: true,
-                                    opacity: _this.defaultOpacity,
-                                    depthWrite: true,
-                                    wireframe: tp.showWireframe,
-                                    name: set + "-" + colorCode
-                                });
-
-                                threadLength = tp[set + "Threads"] / tp[set + "Density"];
-
-                                let yarnId = tp.yarnConfig == "palette" ? color.yarnId : tp[set+"YarnId"];
-                                let yarn = q.graph.yarns[yarnId] !== undefined ? q.graph.yarns[yarnId] : q.graph.yarns.system_0;
-                                let yarnThickness = Textile.getYarnDia(yarn.number, yarn.number_system, "px", "in");
-                                let isSpun = yarn.structure == "spun";
-
-                                if (isSpun) {
-                                    bumpMap = _this.textures.threadBumpMap.val.clone();
-                                    bumpMap.offset.set(getRandom(0, 1), getRandom(0, 1));
-                                    bumpMap.repeat.set(threadLength / yarnThickness / 5, 1);
-                                    bumpMap.needsUpdate = true;
-                                    _this.materials[set][colorCode].bumpMap = bumpMap;
-                                    _this.materials[set][colorCode].bumpScale = 0.01;
-                                }
-
-                            });
-
-                        });
-
-                    }
-
-                    loadingbar.remove();
-
-                    _this.render();
-
-                    resolve();
-
-                });
-
-            });
-
-        },
-
-        buildFabric: async function() {
-
-            let _this = this;
-
-            await q.three.createScene();
-            q.three.removeFabric();
-            await q.three.createThreadMaterials();
-
-            let yarnConfig = tp.yarnConfig;
-            let warpProfile = tp.warpYarnProfile;
-            let weftProfile = tp.weftYarnProfile;
-            let warpNumber = tp.warpNumber;
-            let weftNumber = tp.weftNumber;
-            let warpAspect = tp.warpAspect;
-            let weftAspect = tp.weftAspect;
-            let warpNumberSystem = "nec";
-            let weftNumberSystem = "nec";
-
-            let warpDensity = tp.warpDensity;
-            let weftDensity = tp.weftDensity;
-            let radialSegments = tp.radialSegments;
-            let warpStart = tp.warpStart;
-            let weftStart = tp.weftStart;
-            let warpThreads = tp.warpThreads;
-            let weftThreads = tp.weftThreads;
-            let showCurveNodes = tp.showCurveNodes;
-            let showWireframe = tp.showWireframe;
-
-            if (!q.graph.weave2D8.is2D8) return;
-
-            let weave2D8 = q.graph.weave2D8.tileFill(warpThreads, weftThreads, 1 - warpStart, 1 - weftStart);
-            _this.weave2D8 = weave2D8;
-
-            _this.defaultOpacity = tp.showCurveNodes ? 0.25 : 1;
-            _this.defaultDepthTest = tp.showCurveNodes ? false : true;
-
-            // Thread to Thread Distance in mm
-            let threadDisplacement = {
-                x: 25.4 / warpDensity,
-                z: 25.4 / weftDensity
-            };
-            _this.threadDisplacement = threadDisplacement;
-
-            // Structure Dimensions
-            let structureDimension = {
-                x: threadDisplacement.x * (warpThreads - 1),
-                z: threadDisplacement.z * (weftThreads - 1)
-            };
-            _this.structureDimension = structureDimension;
-
-            // Offset model to center
-            let xOffset = threadDisplacement.x * (warpThreads - 1) / 2;
-            let zOffset = threadDisplacement.z * (weftThreads - 1) / 2;
-
-            _this.xOffset = xOffset;
-            _this.zOffset = zOffset;
-
-            let [warpRadius, warpRadiusX, warpRadiusY] = Textile.getYarnRadius(warpNumber, warpNumberSystem, warpProfile, warpAspect);
-            _this.warpRadius = warpRadius;
-
-            let [weftRadius, weftRadiusX, weftRadiusY] = Textile.getYarnRadius(weftNumber, weftNumberSystem, weftProfile, weftAspect);
-            _this.weftRadius = weftRadius;
-
-            let maxFabricThickness = (warpRadiusY + weftRadiusY) * 2;
-
-            _this.warpRadiusX = warpRadiusX;
-            _this.warpRadiusY = warpRadiusY;
-            _this.weftRadiusX = weftRadiusX;
-            _this.weftRadiusY = weftRadiusY;
-            _this.maxFabricThickness = maxFabricThickness;
-
-            // Arrow Axes Position
-            let axesPos = {
-                x: -(structureDimension.x / 2 + threadDisplacement.x + Math.min(threadDisplacement.x, threadDisplacement.z) / 2),
-                y: 0,
-                z: structureDimension.z / 2 + threadDisplacement.z + Math.min(threadDisplacement.x, threadDisplacement.z) / 2
-            };
-            _this.axes.position.set(axesPos.x, axesPos.y, axesPos.z);
-            _this.axes.visible = tp.showAxes;
-            _this.rotationAxisLine.visible = tp.showAxes;
-
-            _this.threads = [];
-
-            let percentPerThread = 100 / (tp.warpThreads + tp.weftThreads);
-            let x = 0;
-            let xThreads = tp.warpThreads;
-            let y = 0;
-            let yThreads = tp.weftThreads;
-            let loadingbar = new Loadingbar("addThreads", "Rendering Threads", true);
-            $.doTimeout("addThreads", 1, function() {
-                if (x < xThreads) {
-                    loadingbar.title = "Rendering Warp Thread " + (x + 1) + "/" + xThreads;
-                    _this.addThread("warp", x);
-                    _this.render();
-                    loadingbar.progress = Math.round((x + y) * percentPerThread);
-                    x++;
-                    return true;
-                }
-                if (x == xThreads && y < yThreads) {
-                    loadingbar.title = "Rendering Weft Thread " + (y + 1) + "/" + yThreads;
-                    _this.addThread("weft", y);
-                    _this.render();
-                    loadingbar.progress = Math.round((x + y) * percentPerThread);
-                    y++;
-                    return true;
-                }
-                if (x == xThreads && y == yThreads) {
-                    _this.render();
-                    loadingbar.remove();
-                    _this.afterBuildFabric();
-                    return false;
-                }
-            });
-
-        },
-
-        afterBuildFabric: function() {
-
-            let _this = this;
-
-            _this.threads.forEach(function(thread, i) {
-                thread.material.opacity = _this.defaultOpacity;
-                thread.material.depthTest = _this.defaultDepthTest;
-            });
-
-            _this.timeline = new TimelineLite({
-                delay: 0,
-                autoRemoveChildren: true,
-                smoothChildTiming: true,
-                onStart: function() {
-                    _this.controls.enabled = false;
-                    _this.animate = true;
-                    Debug.item("Timeline.Status", "start", "three");
-                },
-                onUpdate: function() {
-                    _this.camera.updateProjectionMatrix();
-                    Debug.item("Timeline.Status", "updating", "three");
-                },
-                onComplete: function(callback) {
-                    _this.controls.enabled = true;
-                    _this.animate = false;
-                    Debug.item("Timeline.Status", "complete", "three");
-                    if (typeof callback === "function") callback();
-                }
-            });
-
-            // debug Console
-            Debug.item("Geometries", _this.renderer.info.memory.geometries, "three");
-            Debug.item("Textures", _this.renderer.info.memory.textures, "three");
-            Debug.item("Calls", _this.renderer.info.render.calls, "three");
-            Debug.item("Triangles", _this.renderer.info.render.triangles, "three");
-            Debug.item("Points", _this.renderer.info.render.points, "three");
-            Debug.item("Lines", _this.renderer.info.render.lines, "three");
-
-            _this.render();
-
-        },
-
-        addThread: function(set, threeIndex) {
-
-            // console.log("addThread : " + set + "-" + threeIndex);
-
-            let _this = this;
-
-            let sx, sy, sz, waveLength, waveAmplitude, pathSegments, intersectH, orientation, yarnRadiusX, yarnRadiusY;
-            let weaveIndex, patternIndex;
-
-            let threadDisplacement = _this.threadDisplacement;
-            let xOffset = _this.structureDimension.x / 2;
-            let zOffset = _this.structureDimension.z / 2;
-            let hft = _this.maxFabricThickness / 2; // half fabric thickness
-
-            let radialSegments = tp.radialSegments;
-
-            let WpRx = _this.warpRadiusX;
-            let WpRy = _this.warpRadiusY;
-            let WfRx = _this.weftRadiusX;
-            let WfRy = _this.weftRadiusY;
-            let rigidityVar = (WfRy * Math.sqrt(WfRy * WfRx) * threadDisplacement.z * threadDisplacement.z) / (WpRy * Math.sqrt(WpRy * WpRx) * threadDisplacement.z * threadDisplacement.z);
-            let WpWa = hft * rigidityVar / (1 + rigidityVar); // Warp Wave Amplitude
-            let WfWa = hft - WpWa; // Weft Wave Amplitude
-
-            if (set == "warp") {
-
-                orientation = "z";
-                sx = threeIndex * threadDisplacement.x - xOffset;
-                sy = 0;
-                sz = zOffset;
-
-                waveLength = threadDisplacement.z * 2;
-                waveAmplitude = WpWa;
-                pathSegments = (tp.weftThreads + 1) * tp.tubularSegments;
-
-                weaveIndex = loopNumber(threeIndex + tp.warpStart - 1, q.graph.ends);
-                patternIndex = loopNumber(threeIndex + tp.warpStart - 1, q.pattern.warp.length);
-
-            } else if (set == "weft") {
-
-                orientation = "x";
-                sx = -xOffset;
-                sy = 0;
-                sz = -threeIndex * threadDisplacement.z + zOffset;
-
-                waveLength = threadDisplacement.x * 2;
-                waveAmplitude = WfWa;
-                pathSegments = (tp.warpThreads + 1) * tp.tubularSegments;
-
-                weaveIndex = loopNumber(threeIndex + tp.weftStart - 1, q.graph.picks);
-                patternIndex = loopNumber(threeIndex + tp.weftStart - 1, q.pattern.weft.length);
-
-            }
-
-            // console.log([set, patternIndex]);
-
-            let threadUpDownArray = getThreadUpDownArray(_this.weave2D8, set, threeIndex);
-            let colorCode = q.pattern[set][patternIndex] || false;
-            let color = q.palette.colors[colorCode];
-            let colorHex = colorCode ? color.hex : (set == "warp" ? "#0000FF" : "#FFFFFF");
-
-            let yarnId = tp.yarnConfig == "palette" ? color.yarnId : tp[set+"YarnId"];
-            let yarn = q.graph.yarns[yarnId] !== undefined ? q.graph.yarns[yarnId] : q.graph.yarns.system_0;
-
-            let [radius, xRadius, yRadius] = Textile.getYarnRadius(yarn.number, yarn.number_system, yarn.profile, yarn.aspect);
-
-            let userData = {
-                type: "tube",
-                threadSet: set,
-                weavei: weaveIndex,
-                patterni: patternIndex,
-                threei: threeIndex,
-                colorCode: colorCode,
-                threeId: set + "-" + threeIndex,
-                weaveId: set + "-" + weaveIndex
-            };
-
-            // console.log(userData);
-            let hiddenColors = tp.hiddenColors.split("");
-            if (tp.hideColors && hiddenColors.includes(colorCode)) {
-                return;
-            }
-
-            return _this.add3DWave(sx, sy, sz, xRadius, yRadius, waveLength, waveAmplitude, threadUpDownArray, orientation, colorHex, userData, pathSegments, radialSegments, yarn.profile);
-
-        },
-
-        add3DWave: function(sx, sy, sz, xTubeRadius, yTubeRadius, waveLength, waveAmplitude, threadUpDownArray, orientation, hex, userData, pathSegments, radialSegments, shapeProfile) {
-
-            //console.log(["add3DWave", userData.threadSet]);
-
-            let _this = this;
-
-            var segmentY;
-
-            // var wa = waveAmplitude;
-
-            var wa = yTubeRadius;
-
-            var wl = -waveLength;
-            var bca = wl / 4; //bezierControlAmount
-
-            // var atan = Math.atan2(wa*2, wl/2) / Math.PI * 2;
-            // var bca =  (atan * wl + atan * wa) / 1.5;
-
-            var state, prevState, n, nx, ny, nz, curvePoints, threadMaterial, geometry;
-
-            var threadSet = userData.threadSet;
-            var colorCode = userData.colorCode;
-            var isWarp = threadSet == "warp";
-            var isWeft = threadSet == "weft";
-            var pointCount = tp.tubularSegments;
-
-            var points = [];
-
-            if (isWarp) {
-
-                for (n = 0; n < threadUpDownArray.length; n++) {
-                    state = threadUpDownArray[n];
-                    if (n) {
-                        nz = sz + (n - 1) * wl / 2;
-                        if (n == 1) {
-                            ny = prevState ? wa : -wa;
-                            curvePoints = waveSegmentPoints("z", sx, ny, sz - wl / 2, wl / 2, 0, bca, pointCount, prevState);
-                            points = points.concat(curvePoints);
-                        }
-                        if (state == prevState) {
-                            ny = state ? wa : -wa;
-                            curvePoints = waveSegmentPoints("z", sx, ny, nz, wl / 2, 0, bca, pointCount, state);
-                        } else {
-                            curvePoints = waveSegmentPoints("z", sx, sy, nz, wl / 2, wa * 2, bca, pointCount, prevState);
-                        }
-                        points = points.concat(curvePoints);
-                        if (n == threadUpDownArray.length - 1) {
-                            ny = state ? wa : -wa;
-                            curvePoints = waveSegmentPoints("z", sx, ny, nz + wl / 2, wl / 2, 0, bca, pointCount, state, false);
-                            points = points.concat(curvePoints);
-                        }
-                    }
-                    prevState = state;
-                }
-
-            } else if (isWeft) {
-
-                for (n = 0; n < threadUpDownArray.length; n++) {
-                    state = threadUpDownArray[n];
-                    if (n) {
-                        nx = sx - (n - 1) * wl / 2;
-                        if (n == 1) {
-                            ny = prevState ? wa : -wa;
-                            curvePoints = waveSegmentPoints("x", sx + wl / 2, ny, sz, wl / 2, 0, bca, pointCount, prevState);
-                            points = points.concat(curvePoints);
-                        }
-                        if (state == prevState) {
-                            ny = state ? wa : -wa;
-                            curvePoints = waveSegmentPoints("x", nx, ny, sz, wl / 2, 0, bca, pointCount, state);
-                        } else {
-                            curvePoints = waveSegmentPoints("x", nx, sy, sz, wl / 2, wa * 2, bca, pointCount, prevState);
-                        }
-                        points = points.concat(curvePoints);
-                        if (n == threadUpDownArray.length - 1) {
-                            ny = state ? wa : -wa;
-                            curvePoints = waveSegmentPoints("x", nx - wl / 2, ny, sz, wl / 2, 0, bca, pointCount, state, false);
-                            points = points.concat(curvePoints);
-                        }
-                    }
-                    prevState = state;
-                }
-
-            }
-
-            var path = new THREE.CatmullRomCurve3(points);
-
-            let threadShape, extrudeSettings;
-
-            if (shapeProfile == "elliptical") {
-
-                let shapeRotation = isWarp ? 0.5 * Math.PI : 0;
-                let shape = new THREE.EllipseCurve(0, 0, xTubeRadius, yTubeRadius, 0, 2 * Math.PI, false, shapeRotation);
-                threadShape = new THREE.Shape(shape.getPoints(tp.radialSegments));
-                extrudeSettings = {
-                    steps: pathSegments,
-                    extrudePath: path
-                };
-
-            } else if (shapeProfile == "rectangular") {
-
-                var shapePoints = [];
-                var shapeW = xTubeRadius;
-                var shapeH = yTubeRadius;
-                if (isWarp) {
-                    [shapeW, shapeH] = [shapeH, shapeW];
-                }
-                shapePoints.push(new THREE.Vector2(shapeW, -shapeH));
-                shapePoints.push(new THREE.Vector2(shapeW, shapeH));
-                shapePoints.push(new THREE.Vector2(-shapeW, shapeH));
-                shapePoints.push(new THREE.Vector2(-shapeW, -shapeH));
-
-                threadShape = new THREE.Shape(shapePoints);
-                extrudeSettings = {
-                    steps: pathSegments,
-                    extrudePath: path
-                };
-
-            } else if (shapeProfile == "lenticular") {
-
-                var shapePartA, shapePartB;
-                var startPiA = 1 / 6 * Math.PI;
-                var endPiA = 5 / 6 * Math.PI;
-                var startPiB = 7 / 6 * Math.PI;
-                var endPiB = 11 / 6 * Math.PI;
-                if (isWarp) {
-                    shapePartA = new THREE.EllipseCurve(yTubeRadius, 0, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiA, endPiA, false, 0.5 * Math.PI);
-                    shapePartB = new THREE.EllipseCurve(-yTubeRadius, 0, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiB, endPiB, false, 0.5 * Math.PI);
-                } else if (isWeft) {
-                    shapePartA = new THREE.EllipseCurve(0, -yTubeRadius, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiA, endPiA, false, 0);
-                    shapePartB = new THREE.EllipseCurve(0, yTubeRadius, xTubeRadius / Math.sqrt(3) * 2, yTubeRadius * 2, startPiB, endPiB, false, 0);
-                }
-                var shapePointsA = shapePartA.getPoints(Math.ceil(tp.radialSegments / 2));
-                var shapePointsB = shapePartB.getPoints(Math.ceil(tp.radialSegments / 2));
-                shapePointsB.shift();
-                shapePointsB.pop();
-                shapePointsA.push(...shapePointsB);
-                threadShape = new THREE.Shape(shapePointsA);
-                extrudeSettings = {
-                    steps: pathSegments,
-                    extrudePath: path
-                };
-
-            } else if (shapeProfile == "circular") {
-
-                if (tp.endCaps) {
-
-                    geometry = new THREE.TubeGeometry(path, pathSegments, xTubeRadius, radialSegments, false);
-
-                    var i, p0, p1, p2, uv0, uv1, uv2, face;
-
-                    var normal = new THREE.Vector3(0, 1, 0);
-                    var materialIndex = 0;
-
-                    var startShape = new THREE.Geometry();
-                    startShape.vertices.push(path.points[0]);
-                    startShape.vertices.push(...geometry.vertices.slice(0, radialSegments));
-
-                    var endShape = new THREE.Geometry();
-                    endShape.vertices.push(path.points[path.points.length - 1]);
-                    endShape.vertices.push(...geometry.vertices.slice(-radialSegments).reverse());
-
-                    [startShape, endShape].forEach(function(v, i) {
-                        for (i = 0; i < radialSegments; i++) {
-                            p0 = 0;
-                            p1 = i + 1;
-                            p2 = p1 == radialSegments ? 1 : i + 2;
-                            face = new THREE.Face3(p0, p1, p2, normal, null, materialIndex);
-                            v.faces.push(face);
-                            uv0 = new THREE.Vector2();
-                            uv1 = new THREE.Vector2();
-                            uv2 = new THREE.Vector2();
-                            v.faceVertexUvs[0].push([uv0, uv1, uv2]);
-                        }
-                        v.verticesNeedUpdate = true;
-                        v.elementsNeedUpdate = true;
-                        v.computeBoundingSphere();
-                        geometry.merge(v);
-                    });
-
-                    geometry.mergeVertices();
-                    geometry = new THREE.BufferGeometry().fromGeometry(geometry);
-
-                } else {
-
-                    geometry = new THREE.TubeBufferGeometry(path, pathSegments, xTubeRadius, radialSegments, false);
-
-                }
-
-            }
-
-            if (shapeProfile !== "circular") {
-
-                if (tp.smoothShading) {
-                    geometry = new THREE.ExtrudeGeometry(threadShape, extrudeSettings);
-                    geometry.mergeVertices();
-                    geometry.computeVertexNormals();
-                    geometry = new THREE.BufferGeometry().fromGeometry(geometry);
-                } else {
-                    geometry = new THREE.ExtrudeBufferGeometry(threadShape, extrudeSettings);
-                }
-
-            }
-
-            // console.log([threadSet, colorCode]);
-            // console.log(_this.materials);
-
-            threadMaterial = _this.materials[threadSet][colorCode];
-            threadMaterial.flatShading = !tp.smoothShading;
-
-            var thread = new THREE.Mesh(geometry, threadMaterial);
-
-            thread.name = "thread";
-
-            if (tp.showCurveNodes) {
-
-                var pathPoints = path.points;
-                var nodePointGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
-                var nodePointMaterial = new THREE.PointsMaterial({
-                    color: hex,
-                    size: 0.04
-                });
-                var nodePoints = new THREE.Points(nodePointGeometry, nodePointMaterial);
-                nodePoints.userData = {
-                    type: "points",
-                    threadSet: threadSet,
-                    weavei: userData.weavei,
-                    threei: userData.threei,
-                    colorCode: userData.colorCode,
-                    threeId: userData.threeId,
-                    weaveId: userData.weaveId
-                };
-                nodePoints.name = "points";
-                this.fabric.add(nodePoints);
-                _this.childIds.push(nodePoints.id);
-
-                var geometry_line = new THREE.BufferGeometry().setFromPoints(pathPoints);
-                var material_line = new THREE.LineBasicMaterial({
-                    color: hex
-                });
-                var line = new THREE.Line(geometry_line, material_line);
-                line.userData = {
-                    type: "line",
-                    threadSet: threadSet,
-                    weavei: userData.weavei,
-                    threei: userData.threei,
-                    colorCode: userData.colorCode,
-                    threeId: userData.threeId,
-                    weaveId: userData.weaveId
-                };
-                line.name = "line";
-                this.fabric.add(line);
-                _this.childIds.push(line.id);
-
-            }
-
-            thread.castShadow = tp.castShadow;
-            thread.receiveShadow = tp.castShadow;
-
-            thread.userData = {
-                type: "tube",
-                threadSet: threadSet,
-                weavei: userData.weavei,
-                threei: userData.threei,
-                colorCode: userData.colorCode,
-                threeId: userData.threeId,
-                weaveId: userData.weaveId
-            };
-
-            _this.fabric.add(thread);
-            _this.threads.push(thread);
-            _this.childIds.push(thread.id);
-
-            return thread.id;
-
-            //_this.render();
-
-        },
-
-        removeThread: function(threadSet, threeIndex) {
-            let _this = this;
-            var threads = _this.fabric.children;
-            var threadId;
-            for (var i = _this.fabric.children.length - 1; i >= 0; --i) {
-                if (threads[i].userData.threadSet == threadSet && threads[i].userData.threei == threeIndex) {
-                    _this.childIds = _this.childIds.removeItem(threads[i].id);
-                    threadId = threads[i].id;
-                    _this.disposeNode(threads[i]);
-                    _this.fabric.remove(threads[i]);
-                }
-            }
-            return threadId;
-        },
-
-        removeFabric: function() {
-            var threads = this.fabric.children;
-            for (var i = threads.length - 1; i >= 0; i--) {
-                if (threads[i].name !== "axes") {
-                    this.disposeNode(threads[i]);
-                    this.fabric.remove(threads[i]);
-                }
-            }
-            this.threads = [];
-            this.childIds = [];
-        },
-
-        animateThreeSceneTo: function(modelRotation = false, cameraPos = false, controlsTarget = false, callback = false) {
-
-            app.views.three.toolbar.disableItem("toolbar-three-change-view");
-
-            var ez = Power4.easeInOut;
-            var duration = 1.5;
-
-            var t = this.timeline;
-            var c = this.camera;
-
-            var fr = this.fabric.rotation;
-            var co = this.controls.target;
-
-            var mr = modelRotation;
-            var cp = cameraPos;
-            var ct = controlsTarget;
-
-            t.clear();
-
-            if (modelRotation) {
-                t.add(TweenLite.to(fr, duration, {
-                    x: mr.x,
-                    y: mr.y,
-                    z: mr.z,
-                    ease: ez
-                }), 0);
-            }
-
-            if (controlsTarget) {
-                t.add(TweenLite.to(co, duration, {
-                    x: ct.x,
-                    y: ct.y,
-                    z: ct.z,
-                    ease: ez
-                }), 0);
-            }
-
-            if (cameraPos) {
-                t.add(TweenLite.to(c.position, duration, {
-                    x: cp.x,
-                    y: cp.y,
-                    z: cp.z,
-                    ease: ez
-                }), 0);
-                t.add(TweenLite.to(c.rotation, duration, {
-                    x: -1.570795326639436,
-                    y: 0,
-                    z: 0,
-                    ease: ez
-                }), 0);
-                t.add(TweenLite.to(c, duration, {
-                    zoom: 1,
-                    ease: ez
-                }), 0);
-            }
-
-            if (typeof callback === "function") {
-                $.doTimeout("threeAnimationCompletionCheckTimer", 10, function() {
-                    if (!t.isActive()) {
-                        app.views.three.toolbar.enableItem("toolbar-three-change-view");
-                        callback();
-                        return false;
-                    }
-                    return true;
-                });
-            }
-
-        },
-
-        resizeRenderer: function(width, height){
-            if (window.devicePixelRatio) {
-                this.renderer.setPixelRatio (window.devicePixelRatio);
-            }
-            this.camera.aspect = width / height;
-            this.camera.updateProjectionMatrix ();
-            this.composer.setSize(width, height);
-            this.renderer.setSize (width, height);    
-            this.render();
-        },
-
-        // Three
-        render: function() {
-
-            if (this.scene) {
-
-                //this.controls.update();
-                //this.renderer.render( this.scene, this.camera );
-                this.composer.render();
-
-                var cameraPos = this.camera.position.clone();
-                var cameraRotation = this.camera.rotation.clone();
-                var controlsTarget = this.controls.target.clone();
-
-                this.rotationAxisLine.position.copy(controlsTarget);
-                tp.cameraPos.copy(cameraPos);
-                tp.controlsTarget.copy(controlsTarget);
-                var objectPos = new THREE.Vector3(0, 0, 0);
-                var distance = cameraPos.distanceTo(objectPos);
-
-                Debug.item("Camera x", Math.round(cameraPos.x * 1000) / 1000, "three");
-                Debug.item("Camera y", Math.round(cameraPos.y * 1000) / 1000, "three");
-                Debug.item("Camera z", Math.round(cameraPos.z * 1000) / 1000, "three");
-                Debug.item("Camera Zoom", Math.round(this.camera.zoom * 1000) / 1000, "three");
-
-                Debug.item("Camera Rx", Math.round(cameraRotation.x * 1000) / 1000, "three");
-                Debug.item("Camera Ry", Math.round(cameraRotation.y * 1000) / 1000, "three");
-                Debug.item("Camera Rz", Math.round(cameraRotation.z * 1000) / 1000, "three");
-
-                if (this.fabric) {
-                    var fabricRot = this.fabric.rotation;
-                    Debug.item("Fabric Rx", Math.round(fabricRot.x * 1000) / 1000, "three");
-                    Debug.item("Fabric Ry", Math.round(fabricRot.y * 1000) / 1000, "three");
-                    Debug.item("Fabric Rz", Math.round(fabricRot.z * 1000) / 1000, "three");
-                }
-
-                Debug.item("Azimuthal", Math.round(this.controls.getAzimuthalAngle() * 1000) / 1000, "three");
-                Debug.item("Polar", Math.round(this.controls.getPolarAngle() * 1000) / 1000, "three");
-                Debug.item("Distance", Math.round(distance * 1000) / 1000, "three");
-
-            }
-
-        },
-
-        startAnimation: function() {
-
-            let _this = this;
-
-            window.requestAnimationFrame(() => {
-
-                if (app.views.active == "three" && _this.animate) {
-                    const now = performance.now();
-                    while (_this.fps.length > 0 && _this.fps[0] <= now - 1000) {
-                        _this.fps.shift();
-                    }
-                    _this.fps.push(now);
-                    Debug.item("FPS", _this.fps.length, "three");
-                    _this.render();
-                }
-                _this.startAnimation();
-            });
-
-        },
-
-        postCreate: function() {
-
-            Debug.item("Geometries", this.renderer.info.memory.geometries, "three");
-            Debug.item("Textures", this.renderer.info.memory.textures, "three");
-            Debug.item("Calls", this.renderer.info.render.calls, "three");
-            Debug.item("Triangles", this.renderer.info.render.triangles, "three");
-            Debug.item("Points", this.renderer.info.render.points, "three");
-            Debug.item("Lines", this.renderer.info.render.lines, "three");
-
-        },
-
-        getFirstWarpWeft: function(threads) {
-            var set;
-            var firstIntersects = {
-                warp: false,
-                weft: false
-            };
-            for (var i = 0; i < threads.length; i++) {
-                set = threads[i].object.userData.threadSet;
-                if (!firstIntersects[set]) {
-                    firstIntersects[set] = threads[i].object;
-                    if (firstIntersects.warp && firstIntersects.weft) {
-                        break;
-                    }
-                }
-            }
-            return firstIntersects;
-        },
-
-        outlinePass: {
-            pass: undefined,
-            stickyMeshIds: [],
-            meshes: [],
-            setup: function() {
-                this.pass = new THREE.OutlinePass(new THREE.Vector2(app.frame.width, app.frame.height), q.three.scene, q.three.camera);
-                this.pass.edgeStrength = 10;
-                this.pass.edgeGlow = 0;
-                this.pass.edgeThickness = 0.5;
-                this.pass.pulsePeriod = 0;
-                this.pass.visibleEdgeColor.set("#ffffff");
-                this.pass.hiddenEdgeColor.set("#666666");
-                q.three.composer.addPass(this.pass);
-            },
-            add: function(mesh, makeSticky = false) {
-                if (!mesh) {
-                    return;
-                }
-                var meshId = mesh.id;
-                if (makeSticky) {
-                    this.stickyMeshIds.uniquePush(meshId);
-                    // console.log(["outline.add", mesh.id, makeSticky]);
-                }
-
-                var meshAlreadyOutlined = this.meshes.some(a => a.id === meshId);
-                if (!meshAlreadyOutlined) {
-                    this.meshes.push(mesh);
-                    this.pass.selectedObjects = this.meshes;
-                    q.three.render();
-                }
-            },
-            removeSticky: function(mesh) {
-                if (!mesh) {
-                    return;
-                }
-                if (this.stickyMeshIds.includes(mesh.id)) {
-                    this.stickyMeshIds = this.stickyMeshIds.remove(mesh.id);
-                    this.meshes = $.grep(this.meshes, function(outlineMesh) {
-                        return outlineMesh.id !== mesh.id;
-                    });
-                    this.pass.selectedObjects = this.meshes;
-                    q.three.render();
-                }
-            },
-            clear: function(clearSticky = false) {
-                let _this = this;
-                if (clearSticky) {
-                    this.stickyMeshIds = [];
-                    this.meshes = [];
-                } else {
-                    this.meshes = $.grep(this.meshes, function(mesh) {
-                        return _this.stickyMeshIds.includes(mesh.id);
-                    });
-                }
-                this.pass.selectedObjects = this.meshes;
-                q.three.render();
-            }
-        },
-
-        highlight: {
-            uuids: [],
-            add: function(mesh) {
-
-                if (!mesh) {
-                    return;
-                }
-                let _this = this;
-                var uuid = mesh.uuid;
-                var meshAlreadyHighlighted = this.uuids.some(a => a.uuid === uuid);
-                if (meshAlreadyHighlighted) {
-                    //this.meshes = this.outlineThreads.filter(threadObject => threadObject.uuid !== targetUUID);
-                } else {
-                    this.uuids.push(uuid);
-                    q.three.threads.forEach(function(thread, i) {
-                        if (!_this.uuids.includes(thread.uuid)) {
-                            thread.material.opacity = 0.25;
-                            thread.material.depthTest = false;
-                        }
-                    });
-                    var meshMaterialName = mesh.material.name;
-                    var cloneMaterial = mesh.material.clone();
-                    cloneMaterial.depthTest = true;
-                    cloneMaterial.opacity = 1;
-                    cloneMaterial.name = mesh.material.name + "-clone";
-                    mesh.material = cloneMaterial;
-                    cloneMaterial.needsUpdate = true;
-                    q.three.render();
-                }
-            },
-            clear: function() {
-                this.uuids = [];
-                var threads = q.three.fabric.children;
-                var set, code;
-                for (var i = threads.length - 1; i >= 0; i--) {
-                    if (threads[i].name == "thread") {
-                        set = threads[i].userData.threadSet;
-                        code = threads[i].userData.colorCode;
-                        if (threads[i].material.name !== set + "-" + code) {
-                            threads[i].material.name = set + "-" + code;
-                            threads[i].material = q.three.materials[set][code];
-                        }
-                        threads[i].material.opacity = q.three.defaultOpacity;
-                        threads[i].material.depthTest = q.three.defaultDepthTest;
-                    }
-                }
-                q.three.render();
-            }
-        },
-
-        getMeshByUUID: function(uuid) {
-            var threads = q.three.fabric.children;
-            for (var i = threads.length - 1; i >= 0; i--) {
-                if (threads[i].uuid == uuid) {
-                    return threads[i];
-                }
-            }
-        },
-
-        // q.three.doMouseInteraction
-        doMouseInteraction: function(type, which, canvasMouse) {
-
-            let _this = this;
-            var mx = (canvasMouse.x / app.frame.width) * 2 - 1;
-            var my = (canvasMouse.y / app.frame.height) * 2 - 1;
-            this.raycaster.setFromCamera({
-                x: mx,
-                y: my
-            }, this.camera);
-            var intersects = this.raycaster.intersectObjects(this.threads);
-            var firstIntersects = this.getFirstWarpWeft(intersects);
-
-            var warpThreei = -1;
-            var weftThreei = -1;
-
-            if (firstIntersects.warp) {
-                warpThreei = Number(firstIntersects.warp.userData.threei) + 1;
-            }
-
-            if (firstIntersects.weft) {
-                weftThreei = Number(firstIntersects.weft.userData.threei) + 1;
-            }
-
-            if (warpThreei > 0 && weftThreei > 0) {
-                let mouseTipText = warpThreei + ", " + weftThreei;
-                MouseTip.text(0, mouseTipText);
-
-            } else if (warpThreei > 0 && weftThreei == -1) {
-                let mouseTipText = "End: " + warpThreei;
-                MouseTip.text(0, mouseTipText);
-
-            } else if (warpThreei == -1 && weftThreei > 0) {
-                let mouseTipText = "Pick: " + weftThreei;
-                MouseTip.text(0, mouseTipText);
-
-            } else {
-                MouseTip.remove(0);
-
-            }
-
-            Debug.item("threeIntersection", warpThreei + ", " + weftThreei, "three");
-
-            if (tp.mouseHoverOutline && intersects.length) {
-                this.outlinePass.clear();
-                this.outlinePass.add(firstIntersects.warp);
-                this.outlinePass.add(firstIntersects.weft);
-            }
-            if (!intersects.length && this.outlinePass.meshes.length) {
-                this.outlinePass.clear();
-            }
-
-            if (tp.mouseHoverHighlight && intersects.length) {
-                this.highlight.clear();
-                this.highlight.add(firstIntersects.warp);
-                this.highlight.add(firstIntersects.weft);
-            }
-            if (!intersects.length && this.highlight.uuids.length) {
-                this.highlight.clear();
-            }
-
-            if (type == "dblclick" && which == 1 && !firstIntersects.warp && !firstIntersects.weft) {
-                this.outlinePass.clear(true);
-            }
-
-            if (type == "dblclick" && which == 1 && firstIntersects.warp && firstIntersects.weft) {
-
-                var endIndex = firstIntersects.warp.userData.weavei;
-                var pickIndex = firstIntersects.weft.userData.weavei;
-                q.graph.set(0, "weave", "toggle", {
-                    col: endIndex + 1,
-                    row: pickIndex + 1,
-                    trim: false
-                });
-                _this.weave2D8 = q.graph.weave2D8.tileFill(tp.warpThreads, tp.weftThreads, 1 - tp.warpStart, 1 - tp.weftStart);
-
-                var replaceThreads = [];
-                _this.threads = $.grep(_this.threads, function(thread, i) {
-                    if (thread.userData.weaveId.in("warp-" + endIndex, "weft-" + pickIndex)) {
-                        replaceThreads.push(thread);
-                        return false;
-                    } else {
-                        return true;
-                    }
-                });
-
-                replaceThreads.forEach(function(thread) {
-                    var threeId = thread.userData.threeId;
-                    var threeIdParts = threeId.split("-");
-                    var yarnSet = threeIdParts[0];
-                    var threeIndex = Number(threeIdParts[1]);
-                    var removeMeshId = _this.removeThread(yarnSet, threeIndex);
-                    var newMeshId = _this.addThread(yarnSet, threeIndex);
-                    if (tp.mouseHoverOutline) {
-                        var makeSticky = _this.outlinePass.stickyMeshIds.includes(removeMeshId);
-                        _this.outlinePass.removeSticky(thread);
-                        var newThread = q.three.scene.getObjectById(newMeshId);
-                        _this.outlinePass.add(newThread, makeSticky);
-                        _this.outlinePass.meshes = $.grep(_this.outlinePass.meshes, function(mesh) {
-                            return _this.outlinePass.stickyMeshIds.includes(mesh.id);
-                        });
-                    }
-                });
-                _this.render();
-                _this.doMouseInteraction("mousemove", 0, canvasMouse);
-            }
-
-            if (type == "click" && which == 1) {
-                if (tp.mouseHoverOutline && intersects.length) {
-                    var stickyWarpClick = firstIntersects.warp && this.outlinePass.stickyMeshIds.includes(firstIntersects.warp.id);
-                    var stickyWeftClick = firstIntersects.weft && this.outlinePass.stickyMeshIds.includes(firstIntersects.weft.id);
-                    if (stickyWarpClick && stickyWeftClick) {
-                        this.outlinePass.removeSticky(firstIntersects.warp);
-                        this.outlinePass.removeSticky(firstIntersects.weft);
-                    } else if (stickyWarpClick && !firstIntersects.weft) {
-                        this.outlinePass.removeSticky(firstIntersects.warp);
-                    } else if (stickyWeftClick && !firstIntersects.warp) {
-                        this.outlinePass.removeSticky(firstIntersects.weft);
-                    } else {
-                        this.outlinePass.add(firstIntersects.warp, true);
-                        this.outlinePass.add(firstIntersects.weft, true);
-                    }
-                }
-            }
-
-        }
-
-    };
-
-    $(document).on("mousedown mouseup", q.ids("three"), function(e) {
-        app.mouse.event("three", e, function(type, which, x, y) {
-            var canavsMouse = getGraphMouse("three", x, y);
-            q.three.doMouseInteraction(type, which, canavsMouse);
-        });
-    });
-
-    function waveSegmentPoints(towards, sx, sy, sz, w, h, bca, segmentPoints, dir, removeLastPoint = true) {
-
-        var staPoint, endPoint, control1, control2;
-
-        h = dir ? h : -h;
-
-        staPoint = new THREE.Vector3(sx, sy + h / 2, sz);
-
-        if (towards == "z") {
-
-            control1 = new THREE.Vector3(sx, sy + h / 2, sz + bca);
-            control2 = new THREE.Vector3(sx, sy - h / 2, sz + w - bca);
-            endPoint = new THREE.Vector3(sx, sy - h / 2, sz + w);
-
-        } else if (towards == "x") {
-
-            control1 = new THREE.Vector3(sx - bca, sy + h / 2, sz);
-            control2 = new THREE.Vector3(sx - w + bca, sy - h / 2, sz);
-            endPoint = new THREE.Vector3(sx - w, sy - h / 2, sz);
-
-        }
-
-        var curve = new THREE.CubicBezierCurve3(staPoint, control1, control2, endPoint);
-        var points = curve.getPoints(segmentPoints);
-
-        if (removeLastPoint) {
-            points.pop();
-        }
-
-        return points;
-
-    }
 
     $(document).on("mouseover", q.ids("model"), function(evt) {
 
@@ -7543,30 +7452,6 @@ $(function() {
             q.model.doMouseInteraction(type, which, canavsMouse);
         });
     });
-
-    function getThreadUpDownArray(arr2D8, threadSet, threadi) {
-
-        var threadArr;
-
-        if (threadSet == "warp") {
-
-            threadArr = arr2D8[threadi];
-
-        } else if (threadSet == "weft") {
-
-            var w = arr2D8.length;
-            var h = arr2D8[0].length;
-            threadArr = new Uint8Array(w);
-
-            for (var x = 0; x < w; x++) {
-                threadArr[x] = 1 - arr2D8[x][threadi];
-            }
-
-        }
-
-        return threadArr;
-
-    }
 
     // ----------------------------------------------------------------------------------
     // Objects & Methods
@@ -7958,8 +7843,8 @@ $(function() {
                     if (!q.palette.colors[code]) {
                         console.log(q.palette.colors);
                     }
-                    color = q.palette.colors[code].rgba_visible;
-                    buffRectSolid(app.origin, pixels8, pixels32, ctxW, ctxH, drawX, drawY, rectW, rectH, color);
+                    color = q.palette.colors[code].color32;
+                    drawSolidRect32(app.origin, pixels32, ctxW, ctxH, drawX, drawY, rectW, rectH, color);
                 }
             } else {
                 drawX = 0;
@@ -7969,8 +7854,8 @@ $(function() {
                     index = loopNumber(i, patternSize);
                     code = q.pattern[yarnSet][index];
                     drawY = (i - drawStartIndex) * ppg + pointDrawOffset;
-                    color = q.palette.colors[code].rgba_visible;
-                    buffRectSolid(app.origin, pixels8, pixels32, ctxW, ctxH, drawX, drawY, rectW, rectH, color);
+                    color = q.palette.colors[code].color32;
+                    drawSolidRect32(app.origin, pixels32, ctxW, ctxH, drawX, drawY, rectW, rectH, color);
                 }
             }
 
@@ -8305,124 +8190,78 @@ $(function() {
                 app.config.save(15);
             },
 
+            newArtwork: [
+                ["number", "Width", "newWidth", 2, { min: 2, max: q.limits.maxArtworkSize }],
+                ["number", "Height", "newHeight", 2, { min: 2, max: q.limits.maxArtworkSize }],
+                ["number", "Canvas Color", "newCanvasColor", 2, { min: 0, max: 255 }],
+                ["control", "play"]
+            ],
+
             resizeArtwork: [
-                ["number", "Width", "resizeWidth", 2, {
-                    min: 2,
-                    max: q.limits.maxArtworkSize
-                }],
-                ["number", "Height", "resizeHeight", 2, {
-                    min: 2,
-                    max: q.limits.maxArtworkSize
-                }],
+                ["number", "Width", "resizeWidth", 2, { min: 2, max: q.limits.maxArtworkSize }],
+                ["number", "Height", "resizeHeight", 2, { min: 2, max: q.limits.maxArtworkSize }],
                 ["check", "Maintain Ratio", "resizeMaintainRatio", 1],
                 ["control", "play"]
             ],
 
             viewSettings: [
-
                 ["check", "Seamless X", "seamlessX", 0],
                 ["check", "Seamless Y", "seamlessY", 0],
                 ["check", "Minor Grid", "showMinorGrid", 1],
                 ["check", "Major Grid", "showMajorGrid", 1],
-
-                ["number", "V-Major Every", "vMajorGridEvery", 8, {
-                    min: 2,
-                    max: 300
-                }],
-                ["number", "H-Major Every", "hMajorGridEvery", 8, {
-                    min: 2,
-                    max: 300
-                }]
-
+                ["number", "V-Major Every", "vMajorGridEvery", 8, { min: 2, max: 300 }],
+                ["number", "H-Major Every", "hMajorGridEvery", 8, { min: 2, max: 300 }]
             ],
 
-            outline: [
-                ["text", "Base Color", "outlineBaseColor", "", {
-                    col: "1/1"
-                }],
-                ["number", "Stroke Color", "outlineStrokeColor", "0", {
-                    col: "1/3",
-                    min: 0,
-                    max: 255
-                }],
-                ["number", "OutlineSize", "outlineStrokeSize", 4, {
-                    col: "1/3",
-                    min: 1,
-                    max: 9999
-                }],
-                ["check", "Rounded", "outlineStrokeRounded", 0],
-                ["select", "Position", "colorStrokePosition", [
-                    ["outside", "Outside"],
-                    ["inside", "Inside"],
-                    ["both", "Both Side"]
-                ], {
-                    col: "3/5"
-                }],
+            colorStroke: [
+                ["text", "Target Colors", "colorStrokeTargetColors", "", { col: "1/1" }],
+                ["number", "Stroke Color", "colorStrokeColor", "0", { col: "1/3", min: 0, max: 255 }],
+                ["number", "Stroke Size", "colorStrokeSize", 4, { col: "1/3", min: 1, max: 9999 }],
+                ["check", "Rounded", "colorStrokeRounded", 0],
+                ["select", "Position", "colorStrokePosition", [ ["outside", "Outside"], ["inside", "Inside"], ["both", "Both Side"] ], { col: "3/5" }],
                 ["check", "Grouping", "colorStrokeGrouping", 1],
+                ["control", "play"]
+            ],
+
+            randomDraw: [
+                ["select", "Shape", "randomDrawShape", [ ["rectangle", "Rectangle"], ["circle", "Circle"]], { col: "2/3" }],
+                ["number", "Min Width", "randomDrawMinWidth", "1", { col: "1/3", min: 1, max: 1000 }],
+                ["number", "Max Width", "randomDrawMaxWidth", "1", { col: "1/3", min: 1, max: 1000 }],
+                ["number", "Min Height", "randomDrawMinHeight", "1", { col: "1/3", min: 1, max: 1000 }],
+                ["number", "Max Height", "randomDrawMaxHeight", "1", { col: "1/3", min: 1, max: 1000 }],
+                ["number", "Frequency", "randomDrawFrequency", "100", { col: "1/3", min: 1, max: 4096 }],
+                ["number", "X Margin", "randomDrawXMargin", "0", { col: "1/3", min: 0, max: 100 }],
+                ["number", "Y Margin", "randomDrawYMargin", "0", { col: "1/3", min: 0, max: 100 }],
+                ["check", "Avoid Overlapping", "randomDrawAvoidOverlapping", 1],
+                ["text", "Draw Colors", "randomDrawColors", "0", { col: "1/1" }],
                 ["control", "play"]
             ],
 
             shadow: [
 
-                ["number", "Shadow Color", "shadowColor", "0", {
-                    col: "1/3",
-                    min: 0,
-                    max: 255
-                }],
-                ["text", "Shadowed Colors", "shadowedColors", "", {
-                    col: "1/1"
-                }],
+                ["number", "Shadow Color", "shadowColor", "0", { col: "1/3", min: 0, max: 255 }],
+                ["text", "Shadowed Colors", "shadowedColors", "", { col: "1/1" }],
                 ["check", "Shaded Colors", "lockShadedColors", 0],
-                ["text", false, "shadedColors", "", {
-                    col: "1/1"
-                }],
-                ["number", "Shadow Range", "shadowRange", 4, {
-                    col: "1/3",
-                    min: 1,
-                    max: 9999
-                }],
-                ["angle", "Shadow Direction", "shadowDirection", 0, {
-                    col: "1/3",
-                    min: 0,
-                    max: 360
-                }],
+                ["text", false, "shadedColors", "", { col: "1/1" }],
+                ["number", "Shadow Range", "shadowRange", 4, { col: "1/3", min: 1, max: 9999 }],
+                ["angle", "Shadow Direction", "shadowDirection", 0, { col: "1/3", min: 0, max: 360 }],
                 ["control", "play"]
 
             ],
 
             colorChange: [
                 ["check", "Swap Colors", "swapColors", 0],
-                ["text", "From Colors", "fromColors", "", {
-                    col: "1/1"
-                }],
-                ["number", "From Color", "fromColor", "0", {
-                    col: "1/3",
-                    min: 0,
-                    max: 255
-                }],
-                ["number", "To Color", "toColor", "0", {
-                    col: "1/3",
-                    min: 0,
-                    max: 255
-                }],
+                ["text", "From Colors", "fromColors", "", { col: "1/1" }],
+                ["number", "From Color", "fromColor", "0", { col: "1/3", min: 0, max: 255 }],
+                ["number", "To Color", "toColor", "0", { col: "1/3", min: 0, max: 255 }],
                 ["control", "play"]
             ],
 
             editColor: [
                 ["dynamicHeader", false, "editColorCaption", "Artwork Color "],
-                ["color", "Color", "colorWeaveColor", "#000000", {
-                    col: "2/3"
-                }],
-                ["number", "Offset X", "colorWeaveOffsetX", 0, {
-                    col: "1/3",
-                    min: -9999,
-                    max: 9999
-                }],
-                ["number", "Offset Y", "colorWeaveOffsetY", 0, {
-                    col: "1/3",
-                    min: -9999,
-                    max: 9999
-                }],
+                ["color", "Color", "colorWeaveColor", "#000000", { col: "2/3" }],
+                ["number", "Offset X", "colorWeaveOffsetX", 0, { col: "1/3", min: -9999, max: 9999 }],
+                ["number", "Offset Y", "colorWeaveOffsetY", 0, { col: "1/3", min: -9999, max: 9999 }],
                 ["control"]
             ]
 
@@ -8490,6 +8329,18 @@ $(function() {
 
         },
 
+        new: function(width, height, color = 0) {
+            q.artwork.set(newArray2D8(20, width, height));
+            if ( color ){
+                for (var x = 0; x < width; x++) {
+                    for (var y = 0; y < height; y++) {
+                        q.artwork._artwork2D8[x][y] = color;
+                    }
+                }
+            }
+            q.artwork.update();
+        },
+
         clear: function() {
             this._artwork2D8 = false;
             this.width = 0;
@@ -8504,10 +8355,18 @@ $(function() {
         update: function() {
             if (!is2D8(this.artwork2D8)) return;
             this.artwork8 = arr2D8_arr8(this.artwork2D8);
+            // let colorPixelCount = new Array(256).fill(0);
+            // for (let i = 0; i < this.artwork8.length; i++) {
+            //     colorPixelCount[this.artwork8[i]]++;
+            // }
+            // for (let i = 0; i < this.palette.length; i++) {
+            //     this.palette[i].count = colorPixelCount;
+            //     this.palette[i].percent = Math.round(colorPixelCount[i] / (q.artwork.width * q.artwork.height) * 100);
+            // }
+            // XWin.render("q.artwork.set", "artworkColors");
         },
 
         resetPalette: function() {
-            console.log("resetPalette");
             this.palette = false;
             this.createPalette();
             app.wins.artworkColors.domNeedsUpdate = true;
@@ -8518,10 +8377,13 @@ $(function() {
             if (!this.palette) {
                 let n = q.limits.maxArtworkColors;
                 this.palette = new Array(n);
+                this.colors32 = new Uint32Array(n);
+                let greyHex = app.colors.grey.hex;
+                let grey32 = app.colors.grey.color32;
                 for (let i = n-1; i >= 0; i--) {
                     this.palette[i] = {
-                        hex: app.colors.black.hex,
-                        color32: app.colors.black.color32,
+                        hex: greyHex,
+                        color32: grey32,
                         count: 0,
                         percent: 0,
                         mask: false,
@@ -8534,22 +8396,70 @@ $(function() {
                         weaveId: undefined,
                         weave: undefined
                     };
+                    this.colors32[i] = grey32;
                 }
             }
-            this.compileColors32();
         },
 
-        compileColors32: function() {
-            let colorLimit = q.limits.maxArtworkColors;
-            this.colors32 = new Uint32Array(colorLimit);
-            for (let i = colorLimit-1; i >= 0; i--) this.colors32[i] = this.palette[i].color32;
+        setDefaultColorPalette(colorCount){
+
+            Debug.time("setColor");
+
+            this.setColor(0, rgb_hex(255, 255, 255), false);
+            this.setColor(1, rgb_hex(255, 0, 0), false);
+            this.setColor(2, rgb_hex(0, 255, 0), false);
+            this.setColor(3, rgb_hex(0, 0, 255), false);
+            this.setColor(4, rgb_hex(255, 255, 0), false);
+            this.setColor(5, rgb_hex(255, 0, 255), false);
+            this.setColor(6, rgb_hex(0, 255, 255), false);
+            this.setColor(7, rgb_hex(0, 0, 0), false);
+
+            if ( colorCount >= 15 ){
+                this.setColor(8, rgb_hex(255, 255, 127), false);
+                this.setColor(9, rgb_hex(255, 127, 255), false);
+                this.setColor(10, rgb_hex(255, 127, 127), false);
+                this.setColor(11, rgb_hex(127, 255, 255), false);
+                this.setColor(12, rgb_hex(127, 255, 127), false);
+                this.setColor(13, rgb_hex(127, 127, 255), false);
+                this.setColor(14, rgb_hex(127, 127, 127), false);                
+            }
+
+            if ( colorCount >= 27 ){
+                this.setColor(15, rgb_hex(255, 127, 0), false);
+                this.setColor(16, rgb_hex(255, 0, 127), false);
+                this.setColor(17, rgb_hex(127, 255, 0), false);
+                this.setColor(18, rgb_hex(127, 0, 255), false);
+                this.setColor(19, rgb_hex(127, 127, 0), false);
+                this.setColor(20, rgb_hex(127, 0, 127), false);
+                this.setColor(21, rgb_hex(127, 0, 0), false);
+                this.setColor(22, rgb_hex(0, 255, 127), false);
+                this.setColor(23, rgb_hex(0, 127, 255), false);
+                this.setColor(24, rgb_hex(0, 127, 127), false);
+                this.setColor(25, rgb_hex(0, 127, 0), false);
+                this.setColor(26, rgb_hex(0, 0, 127), false);
+            }
+
+            for (let i = colorCount-1; i < 256; i++) {
+                this.setColor(i, app.colors.grey.hex, false);
+            }
+
+            this.render();
+
+            Debug.timeEnd("setColor", "artwork");
+
+            Debug.time("XWin.render");
+
+            XWin.render("q.artwork.set", "artworkColors");
+
+            Debug.timeEnd("XWin.render", "artwork");
         },
 
-        setColor: function(index, hex, render = true) {
-            q.artwork.palette[index].hex = hex;
-            q.artwork.palette[index].color32 = hex_rgba32(hex);
-            q.artwork.compileColors32();
-            if (render) q.artwork.render();
+        setColor: function(i, hex, render = true) {
+            let color32 = hex_rgba32(hex);
+            this.palette[i].hex = hex;
+            this.palette[i].color32 = color32;
+            this.colors32[i] =  color32;
+            if (render) this.render();
         },
 
         applyWeaveToColor: function(colorId, weaveId, offsetX = 0, offsetY = 0) {
@@ -8569,18 +8479,12 @@ $(function() {
             var awh = q.artwork.height;
             var res2D8 = newArray2D8(1, aww, awh);
             res2D8 = paste2D8(q.graph.weave2D8, res2D8);
-            if (offsetX) {
-                weave2D8 = weave2D8.transform2D8(22, "shiftx", -offsetX);
-            }
-            if (offsetY) {
-                weave2D8 = weave2D8.transform2D8(23, "shifty", -offsetY);
-            }
+            if (offsetX) weave2D8 = weave2D8.transform2D8(22, "shiftx", -offsetX);
+            if (offsetY) weave2D8 = weave2D8.transform2D8(23, "shifty", -offsetY);
             var fillWeave = arrayTileFill(weave2D8, aww, awh);
             for (let x = 0; x < aww; x++) {
                 for (let y = 0; y < awh; y++) {
-                    if (q.artwork.artwork2D8[x][y] == colorId) {
-                        res2D8[x][y] = fillWeave[x][y];
-                    }
+                    if (q.artwork.artwork2D8[x][y] == colorId) res2D8[x][y] = fillWeave[x][y];
                 }
             }
             q.graph.set(0, "weave", res2D8);
@@ -8627,12 +8531,136 @@ $(function() {
                         let array2D8 = bufferToArray2D8(response.buffer, response.width, response.height);
                         q.artwork.resetPalette();
                         q.artwork.set(array2D8, response.colors);
+                        q.artwork.setPointSize(1, 1);
                         loadingbar.remove();
                     }
                 }).catch(function(error) {
                     console.error(error);
                 });
             }
+        },
+
+        drawRect: function(sx, sy, w, h, c){
+            var dx, dy;
+            var lx = sx + w;
+            var ly = sy + h;
+            for (var x = sx; x < lx; x++) {
+                for (var y = sy; y < ly; y++) {
+                    dx = loopNumber(x, q.artwork.width);
+                    dy = loopNumber(y, q.artwork.height);
+                    q.artwork._artwork2D8[dx][dy] = c;
+                }
+            }
+        },
+
+        setPoint: function(x, y, color){
+            let dx = loopNumber(x, q.artwork.width);
+            let dy = loopNumber(y, q.artwork.height);
+            q.artwork._artwork2D8[dx][dy] = color;
+        },
+
+        ellipsePlotPoints: function (xc, yc, x,  y, color) {
+            this.setPoint (xc + x, yc + y, color);
+            this.setPoint (xc - x, yc + y, color);
+            this.setPoint (xc + x, yc - y, color);
+            this.setPoint (xc - x, yc - y, color);
+        },
+
+        drawCircle: function(sx, sy, d, c){
+            var distance, dx, dy;
+            var lx = sx + d;
+            var ly = sy + d;
+            var r = Math.floor(d/2);
+            var centerX = sx + r;
+            var centerY = sy + r;
+            for (var x = sx; x < lx; x++) {
+                for (var y = sy; y < ly; y++) {
+                    distance = pixelDistance(centerX, centerY, x, y);
+                    if ( distance <= r){
+                        dx = loopNumber(x, q.artwork.width);
+                        dy = loopNumber(y, q.artwork.height);
+                        q.artwork._artwork2D8[dx][dy] = c;
+                    }
+                }
+            }
+        },
+
+        drawEllipse2: function (xc, yc, a, b, color) {
+            var a2 = a * a;
+            var b2 = b * b;
+            var twoa2 = 2 * a2;
+            var twob2 = 2 * b2;
+            var p;
+            var x = 0;
+            var y = b;
+            var px = 0;
+            var py = twoa2 * y;
+
+            /* Plot the initial point in each quadrant. */
+            this.ellipsePlotPoints(xc, yc, x, y, color);
+
+            /* Region 1 */
+            p = Math.round(b2 - (a2 * b) + (0.25 * a2));
+            while (px < py) {
+                x++;
+                px += twob2;
+                if (p < 0) {
+                    p += b2 + px;
+                } else {
+                    y--;
+                    py -= twoa2;
+                    p += b2 + px - py;
+                }
+                this.ellipsePlotPoints(xc, yc, x, y, color);
+            }
+
+            /* Region 2 */
+            p = Math.round(b2 * (x + 0.5) * (x + 0.5) + a2 * (y - 1) * (y - 1) - a2 * b2);
+            while (y > 0) {
+                y--;
+                py -= twoa2;
+                if (p > 0) {
+                    p += a2 - py;
+                } else {
+                    x++;
+                    px += twob2;
+                    p += a2 - py + px;
+                }
+                this.ellipsePlotPoints(xc, yc, x, y, color);
+            }
+        },
+
+        // Check rectangle area for any existing c color;
+        // colors are array to check for overlapping
+        checkOverlapping: function(shape, sx, sy, w, h, colors){
+            var dx, dy, currentColor, distance;
+            var x = sx;
+            var y = sy;
+            var lx = sx + w;
+            var ly = sy + h;
+            var overlapping = false;
+
+            var radius = Math.floor(w/2);
+            var centerX = x + radius;
+            var centerY = y + radius;
+
+            while (x < lx && !overlapping ) {
+                y = sy;
+                while (y < ly && !overlapping ) {
+                    distance = pixelDistance(centerX, centerY, x, y);
+                    if ( shape == "rectangle" || (shape == "circle" && distance <= radius) ){
+                        dx = loopNumber(x, q.artwork.width);
+                        dy = loopNumber(y, q.artwork.height);
+                        currentColor = q.artwork._artwork2D8[dx][dy];
+                        if (colors.includes(currentColor) ) {
+                            overlapping = true;
+                        }
+                    }
+                    y++;
+                }
+                x++;
+            }
+            return overlapping;
         },
 
         process: function(effect, params) {
@@ -8653,45 +8681,6 @@ $(function() {
             }).catch(function(error) {
                 console.error(error);
             });
-        },
-
-        colorOutline_single_pixel: function(base, outline) {
-
-            let aW = q.artwork.width;
-            let aH = q.artwork.height;
-            let processArr01 = newArray2D8(aW, aH);
-            for (let y = 0; y < aH; y++) {
-                for (let x = 0; x < aW; x++) {
-                    let prevX = x == 0 ? aW - 1 : x - 1;
-                    let nextX = x == aW - 1 ? 0 : x + 1;
-                    let prevPixelColor = q.artwork.artwork2D8[prevX][y];
-                    let nextPixelColor = q.artwork.artwork2D8[nextX][y];
-                    let thisPixelColor = q.artwork.artwork2D8[x][y];
-                    if (thisPixelColor == base && prevPixelColor !== base) {
-                        q.artwork.artwork2D8[prevX][y] = outline;
-                    }
-                    if (thisPixelColor == base && nextPixelColor !== base) {
-                        q.artwork.artwork2D8[nextX][y] = outline;
-                    }
-                }
-            }
-            for (let x = 0; x < aW; x++) {
-                for (let y = 0; y < aH; y++) {
-                    let prevY = y == 0 ? aH - 1 : y - 1;
-                    let nextY = y == aH - 1 ? 0 : y + 1;
-                    let prevPixelColor = q.artwork.artwork2D8[x][prevY];
-                    let nextPixelColor = q.artwork.artwork2D8[x][nextY];
-                    let thisPixelColor = q.artwork.artwork2D8[x][y];
-                    if (thisPixelColor == base && prevPixelColor !== base) {
-                        q.artwork.artwork2D8[x][prevY] = outline;
-                    }
-                    if (thisPixelColor == base && nextPixelColor !== base) {
-                        q.artwork.artwork2D8[x][nextY] = outline;
-                    }
-                }
-            }
-            q.artwork.render();
-
         },
 
         colorShadow: function(shadowed, shaded, shadow, range, angle) {
@@ -8759,10 +8748,9 @@ $(function() {
                 q.graph.new(this.width, this.height);
             }
             if (colors32) {
-                this.createPalette();
-                colors32.forEach(function(color32, i) {
-                    q.artwork.setColor(i, rgba32_hex(color32), false);
-                });
+                for (let i = 0; i < colors32.length; i++) {
+                    q.artwork.setColor(i, rgba32_hex(colors32[i]), false);
+                }
                 app.wins.artworkColors.domNeedsUpdate = true;
             }
             if (render) {
@@ -9077,12 +9065,12 @@ $(function() {
 
         new XForm({
             toolbar: app.views.artwork.toolbar,
-            button: "toolbar-artwork-color-outline",
-            id: "artworkColorOutline",
+            button: "toolbar-artwork-color-stroke",
+            id: "artworkColorStroke",
             parent: "artwork",
-            array: ap.outline,
+            array: ap.colorStroke,
             type: "popup",
-            title: "Outline",
+            title: "Color Stroke",
             active: false,
             switchable: true,
             onShow: function() {
@@ -9092,14 +9080,87 @@ $(function() {
 
             },
             onApply: function() {
-                q.artwork.process("colorOutline", {
-                    base: csvStringToIntArray(ap.outlineBaseColor),
-                    outline: ap.outlineStrokeColor,
-                    strokeSize: ap.outlineStrokeSize,
-                    rounded: ap.outlineStrokeRounded,
+                q.artwork.process("colorStroke", {
+                    target: csvStringToIntArray(ap.colorStrokeTargetColors),
+                    stroke: ap.colorStrokeColor,
+                    size: ap.colorStrokeSize,
+                    rounded: ap.colorStrokeRounded,
                     position: ap.colorStrokePosition,
                     grouping: ap.colorStrokeGrouping
                 });
+            }
+        });
+
+        new XForm({
+            toolbar: app.views.artwork.toolbar,
+            button: "toolbar-artwork-random-draw",
+            id: "artworkRandomDraw",
+            parent: "artwork",
+            array: ap.randomDraw,
+            type: "window",
+            title: "Random Draw",
+            active: false,
+            onShow: function() {
+
+            },
+            onChange: function(dom, value) {
+
+            },
+            onApply: function() {
+
+                let randomDrawShape = ap.randomDrawShape;
+
+                let frequency = ap.randomDrawFrequency;
+                let minW = ap.randomDrawMinWidth;
+                let maxW = ap.randomDrawMaxWidth;
+                let minH = ap.randomDrawMinHeight;
+                let maxH = ap.randomDrawMaxHeight;
+                let colors = csvStringToIntArray(ap.randomDrawColors);
+                
+                let colorCount = colors.length;
+
+                let avoidOverlapping = ap.randomDrawAvoidOverlapping;
+                let xMargin = ap.randomDrawXMargin;
+                let yMargin = ap.randomDrawYMargin;
+                let overlapping = false;
+
+                var attemptsPerCycle = 100;
+                var attemptCounter = 0;
+                let drawCounter = 0;
+
+                var loadingbar = new Loadingbar("artworkRandomDraw", "Random draw", true, false, function(){
+                    q.artwork.update();
+                    q.artwork.render();
+                    q.artwork.history.record("drawRect", "artwork");
+                });
+
+                $.doTimeout("artworkRandomDraw", 1, function() {
+                    attemptCounter = 0;
+                    while ( attemptCounter < attemptsPerCycle && drawCounter < frequency ) {
+                        let rW = cryptoRandomInt(minW, maxW);
+                        let rH = cryptoRandomInt(minH, maxH);
+                        var rX = cryptoRandomInt(0, q.artwork.width-1);
+                        var rY = cryptoRandomInt(0, q.artwork.height-1);
+                        var ci = cryptoRandomInt(0, colorCount-1);
+                        if ( avoidOverlapping ) overlapping = q.artwork.checkOverlapping(randomDrawShape, rX - xMargin, rY - yMargin, rW + xMargin * 2, rH + yMargin * 2, colors);
+                        if ( !overlapping ){
+                            if ( randomDrawShape == "circle" ){
+                                q.artwork.drawCircle(rX, rY, rW, colors[ci]);
+                            } else if ( randomDrawShape == "rectangle" ){
+                                q.artwork.drawRect(rX, rY, rW, rH, colors[ci]);
+                            }
+                            drawCounter++;
+                        }
+                        attemptCounter++;
+                    }
+                    loadingbar.title = drawCounter + " / " + frequency;
+                    q.artwork.update();
+                    q.artwork.render();
+                    if (loadingbar) loadingbar.progress = drawCounter / frequency * 100;
+                    if ( drawCounter >= frequency ) return false;                        
+                    return true;
+                });
+                
             }
         });
 
@@ -9141,22 +9202,21 @@ $(function() {
 
         new XForm({
             id: "editArtworkColor",
-            position: "right",
             parent: "artwork",
             array: ap.editColor,
-            type: "popup",
-            button: "btn-edit-color",
-            switchable: false,
+            type: "window",
             active: true,
             onReady: function() {
                 console.log("Edit Artwork Color Ready");
                 console.log(this.form);
             },
-            onBeforeShow: function() {
+            onShow: function(params) {
                 let form = this;
-                let li_id = form.buttonRef;
-                let cw = q.artwork.palette[li_id];
-                ap.editColorCaption = "Artwork Color " + li_id;
+                let colorId = params?.id;
+                this.colorId = colorId;
+
+                let cw = q.artwork.palette[colorId];
+                ap.editColorCaption = "Artwork Color " + colorId;
                 ap.colorWeaveColor = cw.hex;
 
                 form.setDefault("colorWeaveColor", cw.hex);
@@ -9183,8 +9243,8 @@ $(function() {
 
                 let doReset = false;
                 var form = this;
-                var li_id = form.buttonRef;
-                var cw = q.artwork.palette[li_id];
+                var colorId = this.colorId;
+                var cw = q.artwork.palette[colorId];
 
                 if (dom == undefined && value == undefined) {
                     doReset = true;
@@ -9193,14 +9253,14 @@ $(function() {
                 if (!doReset && dom.in("artworkColorWeaveOffsetX", "artworkColorWeaveOffsetY") && cw.weaveIsApplied) {
                     if (dom == "artworkColorWeaveOffsetX") cw.offsetx = value;
                     if (dom == "artworkColorWeaveOffsetY") cw.offsety = value;
-                    q.artwork.applyWeaveToColor(li_id, cw.weaveId, cw.offsetx, cw.offsety);
+                    q.artwork.applyWeaveToColor(colorId, cw.weaveId, cw.offsetx, cw.offsety);
                 }
 
                 if (!doReset && dom == "artworkColorWeaveColor") {
                     let newHex = $("#artworkColorWeaveColor").bgcolor();
-                    let li = XWin.getLibraryItemDomById("artworkColors", false, li_id);
+                    let li = XWin.getLibraryItemDomById("artworkColors", false, colorId);
                     li.find(".img-thumb").bgcolor(newHex);
-                    q.artwork.setColor(li_id, newHex, false);
+                    q.artwork.setColor(colorId, newHex, false);
                     q.artwork.render();
                     this.colorIsChanged = true;
                 }
@@ -9208,12 +9268,12 @@ $(function() {
                 if (doReset) {
                     q.artwork.history.off();
                     if (cw.weaveIsApplied) {
-                        q.artwork.applyWeaveToColor(li_id, cw.weaveId, cw.offsetx, cw.offsety);
+                        q.artwork.applyWeaveToColor(colorId, cw.weaveId, cw.offsetx, cw.offsety);
                     }
-                    let li = XWin.getLibraryItemDomById("artworkColors", false, li_id);
+                    let li = XWin.getLibraryItemDomById("artworkColors", false, colorId);
                     let defaultHex = form.getItem("colorWeaveColor").defaultValue;
                     li.find(".img-thumb").bgcolor(defaultHex);
-                    q.artwork.setColor(li_id, defaultHex, false);
+                    q.artwork.setColor(colorId, defaultHex, false);
                     q.artwork.render();
                     q.artwork.history.on();
                     this.colorIsChanged = false;
@@ -9226,6 +9286,31 @@ $(function() {
                 }
             }
 
+        });
+
+        new XForm({
+            id: "newArtwork",
+            parent: "artwork",
+            array: ap.newArtwork,
+            switchable: false,
+            width: 180,
+            height: 180,
+            top: 100,
+            right: 100,
+            type: "window",
+            title: "New Artwork",
+            active: false,
+            onShow: function () {
+            },
+            onChange: function (dom, value) {
+
+            },
+            onApply: function () {
+                let width = $("#artworkNewWidth").num();
+                let height = $("#artworkNewHeight").num();
+                let color = $("#artworkNewCanvasColor").num();
+                q.artwork.new(width, height, color);
+            }
         });
 
         new XForm({
@@ -9305,7 +9390,7 @@ $(function() {
                 form.setItem("weftYarnId", sp.weftYanId);
 
                 this.quickModeItems = ["warpSize", "weftSize", "warpSpace", "weftSpace"];
-                this.scaledModeItems = ["yarnConfig", "warpYarnId", "weftYarnId", "warpDensity", "weftDensity", "calculateScreenDPI", "screenDPI", "zoom", "reedFill", "dentingSpace", "fuzzySurface", "renderQuality"];
+                this.scaledModeItems = ["yarnConfig", "warpYarnId", "weftYarnId", "warpDensity", "weftDensity", "screenDPI", "zoom", "reedFill", "dentingSpace", "fuzzySurface", "renderQuality"];
                 let isQuickMode = sp.mode == "quick";
                 for (let item of this.quickModeItems) {
                     this.showRow(item, isQuickMode);
@@ -9356,12 +9441,12 @@ $(function() {
 
         new XForm({
             toolbar: app.views.simulation.toolbar,
-            button: "toolbar-simulation-effects",
-            id: "simulationEffects",
+            button: "toolbar-simulation-surface",
+            id: "simulationSurface",
             parent: "simulation",
-            array: sp.effects,
+            array: sp.surface,
             type: "popup",
-            title: "Surface Effects",
+            title: "Surface",
             onShow: function() {
 
             },
@@ -9370,6 +9455,28 @@ $(function() {
             },
             onChange: function(dom, value) {
 
+            }
+        });
+
+        new XForm({
+            toolbar: app.views.simulation.toolbar,
+            button: "toolbar-simulation-filters",
+            id: "simulationFilters",
+            parent: "simulation",
+            array: sp.filters,
+            type: "popup",
+            title: "Filters",
+            active: true,
+            onShow: function() {
+            },
+            onApply: function() {
+            },
+            onChange: function(dom, value) {
+                this.save();
+                q.simulation.applyFilters(q.simulation.originalPixels, q.pixels.simulationDisplay);
+                q.context.simulationDisplay.putImageData(q.pixels.simulationDisplay, 0, 0);
+            },
+            onRelease: function(dom, value){
             }
         });
 
@@ -9530,11 +9637,11 @@ $(function() {
                 }
 
                 if (dom == undefined || dom == "threeProjection") {
-                    q.three.swithCameraTo(tp.projection);
+                    q.three.switchCameraTo(tp.projection);
                 }
 
                 if (dom == undefined || dom == "threeShowAxes") {
-                    q.three.axes.visible = tp.showAxes;
+                    q.three.axesArrows.visible = tp.showAxes;
                     q.three.rotationAxisLine.visible = tp.showAxes;
                     q.three.render();
                 }
@@ -10951,19 +11058,19 @@ $(function() {
     // Firebase
     let fb = {
         get auth() {
-            if (typeof firebase == 'undefined') return false;
+            if (typeof firebase == "undefined") return false;
             return firebase.auth();
         },
         get fs() {
-            if (typeof firebase == 'undefined') return false;
+            if (typeof firebase == "undefined") return false;
             return firebase.firestore();
         },
         get db() {
-            if (typeof firebase == 'undefined') return false;
+            if (typeof firebase == "undefined") return false;
             return firebase.database();
         },
         registerEvents: function() {
-            if (typeof firebase == undefined) return false;
+            if (typeof firebase == "undefined") return false;
             fb.fs.collection("global").doc("site_data").onSnapshot(app.checkForUpdate);
         }
     };
@@ -10977,7 +11084,7 @@ $(function() {
 
         checkFirestoreAppStatus() {
             return new Promise((resolve, reject) => {
-                if (typeof firebase == 'undefined') resolve(false);
+                if (typeof firebase == "undefined") resolve(false);
                 let siteDataRef = fb.fs.collection("global").doc("site_data");
                 siteDataRef.get().then((doc) => {
                     if (doc.exists) {
@@ -11019,6 +11126,50 @@ $(function() {
                 }
             }).catch((error) => {
                 console.log("Error getting document:", error);
+            });
+        },
+
+        promptDialog: false,
+        prompt: function(type, title, msg, data){
+            let _this = this;
+            return new Promise((resolve, reject) => {
+                _this.promptDialog = $.confirm({
+                    title: title,
+                    boxWidth: '25%',
+                    useBootstrap: false,
+                    animateFromElement: false,
+                    theme: 'modern',
+                    content: '' +
+                    '<form action="" class="prompt-form">' +
+                        '<div class="prompt-form-group">' +
+                            '<label class="prompt-label">'+msg+'</label>' +
+                            '<input type="text" value="'+data+'" class="prompt-input" required />' +
+                        '</div>' +
+                    '</form>',
+                    buttons: {
+                        formSubmit: {
+                            text: 'Submit',
+                            btnClass: 'btn-blue',
+                            action: function () {
+                                var name = this.$content.find('.prompt-input').val();
+                                resolve(name);
+                                return true;
+                            }
+                        },
+                        cancel: function () {
+                            resolve(false);
+                        },
+                    },
+                    onContentReady: function () {
+                        // bind to events
+                        var jc = this;
+                        this.$content.find('form').on('submit', function (e) {
+                            // if the user submits the form by pressing enter in the field.
+                            e.preventDefault();
+                            jc.$$formSubmit.trigger('click'); // reference the button and click it
+                        });
+                    }
+                });
             });
         },
 
@@ -11715,14 +11866,14 @@ $(function() {
                 toolbar_xml: "xml/toolbar_graph.xml",
                 created: false,
                 needsUpdate: true,
-                update: function(instanceId = 0) {
+                update: function(instanceId = 0, render = true) {
                     if (!this.created) {
                         createGraphPopups();
                         this.created = true;
                     }
                     if (this.needsUpdate) {
                         q.graph.setInterface(instanceId);
-                        this.needsUpdate = false;
+                        this.needsUpdate = !render;
                     }
                     q.graph.needsUpdate(61);
                     q.pattern.needsUpdate(5);
@@ -11743,7 +11894,7 @@ $(function() {
                     }
                     if (this.needsUpdate) {
                         q.artwork.setInterface(instanceId, render);
-                        this.needsUpdate = false;
+                        this.needsUpdate = !render;
                     }
                     q.artwork.render();
                 }
@@ -11762,7 +11913,7 @@ $(function() {
                     }
                     if (this.needsUpdate) {
                         q.simulation.setInterface(instanceId, render);
-                        this.needsUpdate = false;
+                        this.needsUpdate = !render;
                     }
                 }
             },
@@ -11780,7 +11931,7 @@ $(function() {
                     }
                     if (this.needsUpdate) {
                         q.three.setInterface(instanceId, render);
-                        this.needsUpdate = false;
+                        this.needsUpdate = !render;
                     }
                 }
             },
@@ -11798,9 +11949,16 @@ $(function() {
                     }
                     if (this.needsUpdate) {
                         q.model.setInterface(instanceId, render);
-                        this.needsUpdate = false;
+                        this.needsUpdate = !render;
                     }
                 }
+            },
+
+            setLogo: function(view) {
+                var menu = $(".dhx_cell_menu_def");
+                menu.find("div[id*='app-logo-container']").html("<div id='app-logo'></div>");
+                menu.find("div[id*='view-']").attr("data-selected", "0");
+                menu.find("div[id*='view-" + view + "']").attr("data-selected", "1");
             },
 
             loadMenu: function(view) {
@@ -11842,16 +12000,10 @@ $(function() {
                     let frame = $("#" + view + "-frame");
                     app.frame.width = frame.width();
                     app.frame.height = frame.height();
-                    app.views[view].update("onAppViewShow");
+                    app.views[view].update("onAppViewShow", false);
+                    $(".user-profile-button").text(q.user.current.email);
                     resolve();
                 });
-            },
-
-            setLogo: function(view) {
-                var menu = $(".dhx_cell_menu_def");
-                menu.find("div[id*='app-logo-container']").html("<div id='app-logo'></div>");
-                menu.find("div[id*='view-']").attr("data-selected", "0");
-                menu.find("div[id*='view-" + view + "']").attr("data-selected", "1");
             },
 
             show: function(view) {
@@ -11865,11 +12017,9 @@ $(function() {
                 app.views[view].update("onAppViewShow");
                 Status.switchTo(view);
                 this.setLogo(view);
-                $(".user-profile-button").text(q.user.current.email);
-                console.log(q.user);
             },
 
-            update: function() {
+            updateAll: function() {
                 ["graph", "artwork", "simulation", "three", "model"].forEach(view => {
                     app.views[view].needsUpdate = true;
                 });
@@ -11991,13 +12141,13 @@ $(function() {
             focusShadowHex: "#000",
 
             grid: {
-                light: rgbaToColor32(160, 160, 160),
-                dark: rgbaToColor32(80, 80, 80)
+                light: rgba_rgba32(160, 160, 160),
+                dark: rgba_rgba32(80, 80, 80)
             },
 
             check: {
-                light: rgbaToColor32(232, 232, 232),
-                dark: rgbaToColor32(216, 216, 216)
+                light: rgba_rgba32(232, 232, 232),
+                dark: rgba_rgba32(216, 216, 216)
             },
 
             // app.ui.load
@@ -12008,7 +12158,7 @@ $(function() {
                 mot.text('Connecting Server');
 
                 // Firebase setup check
-                if (typeof firebase == undefined) {
+                if (typeof firebase == "undefined") {
                     mot.text('Error connecting server!').addClass('mo-error');
                     return;
                 }
@@ -12156,7 +12306,7 @@ $(function() {
                 app.layout.attachEvent("onResizeFinish", function() {
                     Debug.item("Frame Width", app.frame.width);
                     Debug.item("Frame Height", app.frame.height);
-                    app.views.update();
+                    app.views.updateAll();
                     XWin.reposition();
                 });
 
@@ -12206,7 +12356,7 @@ $(function() {
 
             weaves: {
                 title: "Weave Library",
-                width: 240,
+                width: 300,
                 height: 365,
                 top: 200,
                 right: 70,
@@ -12280,7 +12430,8 @@ $(function() {
                         tab: tab,
                         edit_button_class: "btn-edit-weave",
                         copy: true,
-                        delete: tab == "user" ? true : false
+                        delete: tab == "user" ? true : false,
+                        rename: tab == "user" ? true : false
                     };
                     app.wins.weaves.tabs[tab].domNeedsUpdate = true;
                     if (tab == "user" && saveState) {
@@ -12418,6 +12569,19 @@ $(function() {
                 top: 120,
                 right: 300,
                 type: "library",
+                needsUpdate: true,
+                dataNeedsUpdate: true,
+                domNeedsUpdate: true,
+                userButton: "reload",
+                onReady: function() {},
+                onShow: function() {}
+            },
+
+            estimateDPI: {
+                title: "Estimate Screen DPI",
+                width: 480,
+                height: 360,
+                modal: true,
                 needsUpdate: true,
                 dataNeedsUpdate: true,
                 domNeedsUpdate: true,
@@ -13164,102 +13328,33 @@ $(function() {
         },
 
         colors: {
-            black32: rgbaToColor32(0, 0, 0),
-            black5032: rgbaToColor32(0, 0, 0, 127),
-            white32: rgbaToColor32(255, 255, 255),
-            red32: rgbaToColor32(255, 0, 0),
-            green32: rgbaToColor32(0, 255, 0),
-            blue32: rgbaToColor32(0, 0, 255),
-            grey32: rgbaToColor32(127, 127, 127),
+
+            black32: rgba_rgba32(0, 0, 0),
+            black5032: rgba_rgba32(0, 0, 0, 127),
+            white32: rgba_rgba32(255, 255, 255),
+            red32: rgba_rgba32(255, 0, 0),
+            green32: rgba_rgba32(0, 255, 0),
+            blue32: rgba_rgba32(0, 0, 255),
+            grey32: rgba_rgba32(127, 127, 127),
 
             rgba: {
-                black: {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 1
-                },
-                black50: {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 0.5
-                },
-                white: {
-                    r: 255,
-                    g: 255,
-                    b: 255,
-                    a: 1
-                },
-                red: {
-                    r: 255,
-                    g: 0,
-                    b: 0,
-                    a: 1
-                },
-                green: {
-                    r: 0,
-                    g: 255,
-                    b: 0,
-                    a: 1
-                },
-                blue: {
-                    r: 0,
-                    g: 0,
-                    b: 255,
-                    a: 1
-                },
-                grey: {
-                    r: 127,
-                    g: 127,
-                    b: 127,
-                    a: 1
-                }
+                black: { r: 0, g: 0, b: 0, a: 1 },
+                black50: { r: 0, g: 0, b: 0, a: 0.5 },
+                white: { r: 255, g: 255, b: 255, a: 1 },
+                red: { r: 255, g: 0, b: 0, a: 1 },
+                green: { r: 0, g: 255, b: 0, a: 1 },
+                blue: { r: 0, g: 0, b: 255, a: 1 },
+                grey: { r: 127, g: 127, b: 127, a: 1 }
             },
 
             rgba255: {
-                black: {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 255
-                },
-                black50: {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 127
-                },
-                white: {
-                    r: 255,
-                    g: 255,
-                    b: 255,
-                    a: 255
-                },
-                red: {
-                    r: 255,
-                    g: 0,
-                    b: 0,
-                    a: 255
-                },
-                green: {
-                    r: 0,
-                    g: 255,
-                    b: 0,
-                    a: 255
-                },
-                blue: {
-                    r: 0,
-                    g: 0,
-                    b: 255,
-                    a: 255
-                },
-                grey: {
-                    r: 127,
-                    g: 127,
-                    b: 127,
-                    a: 255
-                }
+                black: { r: 0, g: 0, b: 0, a: 255 },
+                black50: { r: 0, g: 0, b: 0, a: 127 },
+                white: { r: 255, g: 255, b: 255, a: 255 },
+                red: { r: 255, g: 0, b: 0, a: 255 },
+                green: { r: 0, g: 255, b: 0, a: 255 },
+                blue: { r: 0, g: 0, b: 255, a: 255 },
+                grey: { r: 127, g: 127, b: 127, a: 255 }
             },
 
             rgba_str: {
@@ -13282,20 +13377,18 @@ $(function() {
 
             black: {
                 hex: "#000000",
-                rgba: {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 1
-                },
-                color32: rgbaToColor32(0, 0, 0),
-                rgba255: {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 255
-                },
+                rgba: { r: 0, g: 0, b: 0, a: 1 },
+                color32: rgba_rgba32(0, 0, 0),
+                rgba255: { r: 0, g: 0, b: 0, a: 255 },
                 rgba_str: "rgba(0,0,0,1)"
+            },
+
+            grey: {
+                hex: "#7f7f7f",
+                rgba: { r: 127, g: 127, b: 127, a: 1 },
+                color32: rgba_rgba32(127, 127, 127),
+                rgba255: { r: 127, g: 127, b: 127, a: 255 },
+                rgba_str: "rgba(127, 127, 127, 1)"
             },
 
             hex: {
@@ -13306,6 +13399,7 @@ $(function() {
                 green: "#00ff00",
                 blue: "#0000ff"
             }
+
         },
 
         autoProject: function() {
@@ -14318,17 +14412,17 @@ $(function() {
             var color32 = hex_rgba32(chip.hex);
             var rgba = hexToRgba1(chip.hex);
             var rgba255 = hexToRgba255(chip.hex);
-            var hsl = rgbToHsl(rgba);
+            var hsl = RGB_HSL(rgba);
 
             var tubeGradient = [];
 
             if (chip.code) {
 
                 visibleL = mapNumberToRange(hsl.l, 0, 100, 5, 95, false);
-                visibleHex = hslToHex(hsl.h, hsl.s, visibleL);
+                visibleHex = hsl_hex(hsl.h, hsl.s, visibleL);
 
                 var betterHexL = mapNumberToRange(hsl.l, 0, 100, 10, 97.5, false);
-                var betterHex = hslToHex(hsl.h, hsl.s, betterHexL);
+                var betterHex = hsl_hex(hsl.h, hsl.s, betterHexL);
 
                 light = hexHsvChange(betterHex, 0, 0, 0.05);
                 lighter = hexHsvChange(betterHex, 0, 0, 0.20);
@@ -14449,6 +14543,25 @@ $(function() {
                 drawStyle: gp.drawStyle,
                 liftingMode: q.graph.liftingMode,
             });
+        },
+
+        fillToPattern: function(yarnSet = "fabric") {
+
+            let weave = q.graph.weave2D8;
+            let weaveW = weave.length;
+            let weaveH = weave[0].length;
+
+            let patternW = q.pattern.warp.length;
+            let patternH = q.pattern.weft.length;
+
+            let fabricRepeatW = [weaveW, patternW].lcm();
+            let fabricRepeatH = [weaveH, patternH].lcm();
+
+            if (fabricRepeatW > weaveW || fabricRepeatH > weaveH ) {
+                var newWeave = arrayTileFill(q.graph.weave2D8, fabricRepeatW, fabricRepeatH);
+                q.graph.set(0, "weave", newWeave);
+            }
+
         },
 
         scrollTowards: function(direction, amount = 1) {
@@ -14843,6 +14956,8 @@ $(function() {
                 ]],
                 ["number", "Luster", "newYarnLuster", 25, { min: 0, max: 100 }],
                 ["number", "Shadow", "newYarnShadow", 25, { min: 0, max: 100 }],
+                ["number", "Twist/TPI", "newYarnTwistTPI", 25, { min: 0, max: 100 }],
+                ["number", "Expansion", "newYarnExpansion", 0, { min: 0, max: 1 }],
                 ["select", "Profile", "newYarnProfile", [
                     ["circular", "Circular"],
                     ["elliptical", "Elliptical"],
@@ -14880,6 +14995,8 @@ $(function() {
                 ]],
                 ["number", "Luster", "editYarnLuster", 25, { min: 0, max: 100 }],
                 ["number", "Shadow", "editYarnShadow", 25, { min: 0, max: 100 }],
+                ["number", "Twist/TPI", "editYarnTwistTPI", 25, { min: 0, max: 100 }],
+                ["number", "Expansion", "editYarnExpansion", 0, { min: 0, max: 1 }],
                 ["select", "Profile", "editYarnProfile", [
                     ["circular", "Circular"],
                     ["elliptical", "Elliptical"],
@@ -16362,367 +16479,118 @@ $(function() {
         params: {
 
             structure: [
-                ["select", "Mode", "mode", [
-                    ["quick", "Quick"],
-                    ["scaled", "Scaled"]
-                ], {
-                    col: "1/2"
-                }],
-                ["select", "Draw", "drawMethod", [
-                    ["3d", "3D"],
-                    ["flat", "Flat"]
-                ], {
-                    col: "1/2"
-                }],
-                ["color", "Background", "backgroundColor", "#000000", {
-                    col: "1/2"
-                }],
-
-                ["select", "Yarns", "yarnConfig", [
-                    ["biset", "Bi-Set"],
-                    ["palette", "Palette"]
-                ], {
-                    col: "2/5",
-                    hide: true
-                }],
-
+                ["select", "Mode", "mode", [ ["quick", "Quick"], ["scaled", "Scaled"] ], { col: "1/2" }],
+                ["select", "Draw", "drawMethod", [ ["3d", "3D"], ["flat", "Flat"] ], { col: "1/2" }],
+                ["color", "Background", "backgroundColor", "#000000", { col: "1/2" }],
+                ["select", "Yarns", "yarnConfig", [ ["biset", "Bi-Set"], ["palette", "Palette"] ], { col: "2/5", hide: true }],
                 ["select", "Warp", "warpYarnId", [ ["system_0", "Default"] ], { col: "2/3", hide: true }],
                 ["select", "Weft", "weftYarnId", [ ["system_0", "Default"] ], { col: "2/3", hide: true }],
-
-                ["number", "Warp Size", "warpSize", 2, {
-                    min: 1,
-                    max: 16
-                }],
-                ["number", "Weft Size", "weftSize", 2, {
-                    min: 1,
-                    max: 16
-                }],
-                ["number", "Warp Space", "warpSpace", 0, {
-                    min: 0,
-                    max: 16
-                }],
-                ["number", "Weft Space", "weftSpace", 0, {
-                    min: 0,
-                    max: 16
-                }],
-
-                ["number", "Warp Density", "warpDensity", 55, {
-                    min: 10,
-                    max: 300,
-                    hide: true
-                }],
-                ["number", "Weft Density", "weftDensity", 55, {
-                    min: 10,
-                    max: 300,
-                    hide: true
-                }],
-                ["button", false, "calculateScreenDPI", "Calculate Screen DPI", {
-                    col: "1/1",
-                    hide: true
-                }],
-                ["number", "Screen DPI", "screenDPI", 110, {
-                    min: 72,
-                    max: 480,
-                    hide: true
-                }],
-                ["number", "Zoom", "zoom", 1, {
-                    min: 1,
-                    max: 100,
-                    hide: true
-                }],
-
-                ["number", "Reed Filling", "reedFill", 1, {
-                    min: 1,
-                    max: 8,
-                    hide: true
-                }],
-                ["number", "Denting Space", "dentingSpace", 0.2, {
-                    min: 0,
-                    max: 1,
-                    step: 0.05,
-                    precision: 2,
-                    hide: true
-                }],
-
+                ["number", "Warp Size", "warpSize", 2, { min: 1, max: 16 }],
+                ["number", "Weft Size", "weftSize", 2, { min: 1, max: 16 }],
+                ["number", "Warp Space", "warpSpace", 0, { min: 0, max: 16 }],
+                ["number", "Weft Space", "weftSpace", 0, { min: 0, max: 16 }],
+                ["number", "Warp Density", "warpDensity", 55, { min: 10, max: 300, precision: 1, hide: true }],
+                ["number", "Weft Density", "weftDensity", 55, { min: 10, max: 300, precision: 1, hide: true }],
+                ["number", "Screen DPI", "screenDPI", 110, { min: 72, max: 480, hide: true }],
+                ["number", "Zoom", "zoom", 1, { min: 1, max: 128, hide: true }],
+                ["number", "Reed Filling", "reedFill", 1, { min: 1, max: 8, hide: true }],
+                ["number", "Denting Space", "dentingSpace", 0.2, { min: 0, max: 1, step: 0.05, precision: 2, hide: true }],
                 ["check", "Fuzzy Surface", "fuzzySurface", 1, { hide: true }],
-                ["number", "Render Quality", "renderQuality", 1, {
-                    min: 1,
-                    max: 8,
-                    hide: true
-                }],
-
+                ["number", "Render Quality", "renderQuality", 1, { min: 1, max: 8, hide: true }],
                 ["control", "save", "play"]
             ],
 
             yarn: [
                 ["check", "Yarn Imperfections", "renderYarnImperfections", 0],
-                ["number", "Warp Thins", "warpThins", 10, {
-                    min: 0,
-                    max: 500
-                }],
-                ["number", "Warp Thicks", "warpThicks", 40, {
-                    min: 0,
-                    max: 500
-                }],
-                ["number", "Warp Neps", "warpNeps", 80, {
-                    min: 0,
-                    max: 500
-                }],
-                ["number", "Warp Thickness Jitter", "warpThicknessJitter", 0.01, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Warp Node Thickness Jitter", "warpNodeThicknessJitter", 0.03, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Weft Thins", "weftThins", 10, {
-                    min: 0,
-                    max: 500
-                }],
-                ["number", "Weft Thicks", "weftThicks", 40, {
-                    min: 0,
-                    max: 500
-                }],
-                ["number", "Weft Neps", "weftNeps", 80, {
-                    min: 0,
-                    max: 500
-                }],
-                ["number", "Weft Thickness Jitter", "weftThicknessJitter", 0.01, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Weft Node Thickness Jitter", "weftNodeThicknessJitter", 0.05, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-
+                ["number", "Warp Thins", "warpThins", 10, { min: 0, max: 500 }],
+                ["number", "Warp Thicks", "warpThicks", 40, { min: 0, max: 500 }],
+                ["number", "Warp Neps", "warpNeps", 80, { min: 0, max: 500 }],
+                ["number", "Warp Thickness Jitter", "warpThicknessJitter", 0.01, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Warp Node Thickness Jitter", "warpNodeThicknessJitter", 0.03, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Weft Thins", "weftThins", 10, { min: 0, max: 500 }],
+                ["number", "Weft Thicks", "weftThicks", 40, { min: 0, max: 500 }],
+                ["number", "Weft Neps", "weftNeps", 80, { min: 0, max: 500 }],
+                ["number", "Weft Thickness Jitter", "weftThicknessJitter", 0.01, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Weft Node Thickness Jitter", "weftNodeThicknessJitter", 0.05, { min: 0, max: 1, step: 0.01, precision: 2 }],
                 ["number", "warpMinSlubLen", "warpMinSlubLen", 7, { min: 1, max: 100 }],
                 ["number", "warpMaxSlubLen", "warpMaxSlubLen", 9, { min: 1, max: 100 }],
                 ["number", "warpMinSlubPause", "warpMinSlubPause", 17, { min: 1, max: 100 }],
                 ["number", "warpMaxSlubPause", "warpMaxSlubPause", 25, { min: 1, max: 100 }],
                 ["number", "warpMinSlubThickness", "warpMinSlubThickness", 1.23, { min: 1, max: 4, step: 0.1, precision: 2 }],
                 ["number", "warpMaxSlubThickness", "warpMaxSlubThickness", 1.71, { min: 1, max: 4, step: 0.1, precision: 2 }],
-
                 ["number", "weftMinSlubLen", "weftMinSlubLen", 7, { min: 1, max: 100 }],
                 ["number", "weftMaxSlubLen", "weftMaxSlubLen", 9, { min: 1, max: 100 }],
                 ["number", "weftMinSlubPause", "weftMinSlubPause", 17, { min: 1, max: 100 }],
                 ["number", "weftMaxSlubPause", "weftMaxSlubPause", 25, { min: 1, max: 100 }],
                 ["number", "weftMinSlubThickness", "weftMinSlubThickness", 1.23, { min: 1, max: 4, step: 0.1, precision: 2 }],
                 ["number", "weftMaxSlubThickness", "weftMaxSlubThickness", 1.71, { min: 1, max: 4, step: 0.1, precision: 2 }],
-
                 ["control", "save", "play"]
-
             ],
 
             behaviour: [
                 ["check", "Fabric Imperfections", "renderFabricImperfections", 0],
-                ["number", "Warp Pos Jitter", "warpPosJitter", 0.03, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Weft Pos Jitter", "weftPosJitter", 0.03, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wp Node Pos Jitter", "warpNodePosJitter", 0.03, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wf Node Pos Jitter", "weftNodePosJitter", 0.03, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wp Wiggle Freq", "warpWiggleFrequency", 0.5, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wp Wiggle Range", "warpWiggleRange", 0.1, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wp Wiggle Inc", "warpWiggleInc", 0.01, {
-                    min: 0,
-                    max: 1,
-                    step: 0.005,
-                    precision: 3
-                }],
-                ["number", "Wf Wiggle Freq", "weftWiggleFrequency", 0.2, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wf Wiggle Range", "weftWiggleRange", 0.1, {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    precision: 2
-                }],
-                ["number", "Wf Wiggle Inc", "weftWiggleInc", 0.01, {
-                    min: 0,
-                    max: 1,
-                    step: 0.005,
-                    precision: 3
-                }],
-                ["number", "Wp Float Lift%", "warpFloatLift", 0.5, {
-                    min: 0,
-                    max: 1,
-                    step: 0.1,
-                    precision: 2
-                }],
-                ["number", "Wf Float Lift%", "weftFloatLift", 0.5, {
-                    min: 0,
-                    max: 1,
-                    step: 0.1,
-                    precision: 2
-                }],
-                ["number", "Wp Distortion%", "warpFloatDistortionPercent", 25, {
-                    min: 0,
-                    max: 100
-                }],
-                ["number", "Wf Distortion%", "weftFloatDistortionPercent", 50, {
-                    min: 0,
-                    max: 100
-                }],
-                ["number", "Warp Expansion", "warpFloatExpansion", 0.25, {
-                    min: 0,
-                    max: 1,
-                    step: 0.1,
-                    precision: 2
-                }],
-                ["number", "Weft Expansion", "weftFloatExpansion", 0.25, {
-                    min: 0,
-                    max: 100,
-                    step: 0.1,
-                    precision: 2
-                }],
+                ["number", "Warp Pos Jitter", "warpPosJitter", 0.03, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Weft Pos Jitter", "weftPosJitter", 0.03, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wp Node Pos Jitter", "warpNodePosJitter", 0.03, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wf Node Pos Jitter", "weftNodePosJitter", 0.03, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wp Wiggle Freq", "warpWiggleFrequency", 0.5, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wp Wiggle Range", "warpWiggleRange", 0.1, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wp Wiggle Inc", "warpWiggleInc", 0.01, { min: 0, max: 1, step: 0.005, precision: 3 }],
+                ["number", "Wf Wiggle Freq", "weftWiggleFrequency", 0.2, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wf Wiggle Range", "weftWiggleRange", 0.1, { min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["number", "Wf Wiggle Inc", "weftWiggleInc", 0.01, { min: 0, max: 1, step: 0.005, precision: 3 }],
+                ["number", "Wp Float Lift%", "warpFloatLift", 0.5, { min: 0, max: 1, step: 0.1, precision: 2 }],
+                ["number", "Wf Float Lift%", "weftFloatLift", 0.5, { min: 0, max: 1, step: 0.1, precision: 2 }],
+                ["number", "Wp Distortion%", "warpFloatDistortionPercent", 25, { min: 0, max: 100 }],
+                ["number", "Wf Distortion%", "weftFloatDistortionPercent", 50, { min: 0, max: 100 }],
+                ["number", "Warp Expansion", "warpFloatExpansion", 0.25, { min: 0, max: 1, step: 0.1, precision: 2 }],
+                ["number", "Weft Expansion", "weftFloatExpansion", 0.25, { min: 0, max: 100, step: 0.1, precision: 2 }],
                 ["control", "save", "play"]
             ],
 
             export: [
-                ["number", "X Repeats", "exportXRepeats", 1, {
-                    min: 0.01,
-                    max: 16384,
-                    step: 1,
-                    precision: 2,
-                    col: "1/3"
-                }],
-                ["number", "Y Repeats", "exportYRepeats", 1, {
-                    min: 0.01,
-                    max: 16384,
-                    step: 1,
-                    precision: 2,
-                    col: "1/3"
-                }],
-                ["number", "Warp Threads", "exportWarpThreads", 1, {
-                    min: 2,
-                    max: 16384,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["number", "Weft Threads", "exportWeftThreads", 1, {
-                    min: 2,
-                    max: 16384,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["number", "X Dimension (mm)", "exportXDimension", 1, {
-                    min: 1,
-                    max: 16384,
-                    step: 0.1,
-                    col: "1/3"
-                }],
-                ["number", "Y Dimension (mm)", "exportYDimension", 1, {
-                    min: 1,
-                    max: 16384,
-                    step: 0.1,
-                    col: "1/3"
-                }],
-
-                ["number", "Scale", "exportScale", 1, {
-                    min: 1,
-                    max: 16,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["number", "Quality", "exportQuality", 1, {
-                    min: 1,
-                    max: 16,
-                    step: 1,
-                    col: "1/3"
-                }],
-
-                ["number", "Render Width", "exportRenderWidth", 1, {
-                    min: 2,
-                    max: 16384,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["number", "Render Height", "exportRenderHeight", 1, {
-                    min: 2,
-                    max: 16384,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["number", "Output Width", "exportOutputWidth", 1, {
-                    min: 2,
-                    max: 16384,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["number", "Output Height", "exportOutputHeight", 1, {
-                    min: 2,
-                    max: 16384,
-                    step: 1,
-                    col: "1/3"
-                }],
-                ["check", "Info Frame", "exportInfoFrame", 1],
-                ["control", "save", "play"]
+                ["number", "X Repeats", "exportXRepeats", 1, { min: 0.01, max: 16384, step: 1, precision: 2, col: "1/3" }],
+                ["number", "Y Repeats", "exportYRepeats", 1, { min: 0.01, max: 16384, step: 1, precision: 2, col: "1/3" }],
+                ["number", "Warp Threads", "exportWarpThreads", 1, { min: 2, max: 16384, step: 1, col: "1/3" }],
+                ["number", "Weft Threads", "exportWeftThreads", 1, { min: 2, max: 16384, step: 1, col: "1/3" }],
+                ["number", "X Dimension (mm)", "exportXDimension", 1, { min: 1, max: 16384, step: 0.1, col: "1/3" }],
+                ["number","Y Dimension (mm)","exportYDimension",1,{ min: 1, max: 16384, step: 0.1, col: "1/3" }],
+                ["number", "Scale", "exportScale", 1, { min: 1, max: 16, step: 1, col: "1/3" }],
+                ["number", "Quality", "exportQuality", 1, { min: 1, max: 16, step: 1, col: "1/3" }],
+                ["number", "Render Width", "exportRenderWidth", 1, { min: 2, max: 16384, step: 1, col: "1/3" }],
+                ["number", "Render Height", "exportRenderHeight", 1, { min: 2, max: 16384, step: 1, col: "1/3" }],
+                ["number", "Output Width", "exportOutputWidth", 1, { min: 2, max: 16384, step: 1, col: "1/3" }],
+                ["number", "Output Height", "exportOutputHeight", 1, { min: 2, max: 16384, step: 1, col: "1/3" }],
+                ["check", "Info Frame", "exportInfoFrame", 1], ["control", "save", "play"]
             ],
 
-            effects: [
-                ["range", "Surface Puckering", "renderSurfacePuckering", 0, {
-                    col: "1/1",
-                    min: 0,
-                    max: 100,
-                    step: 5
-                }],
-                ["control", "save", "play"]
-            ],
-
-            settings: [
-                ["number", "Algorithm", "renderAlgorithm", 0, {
-                    min: 0,
-                    max: 16
-                }],
+            surface: [
+                ["range", "Surface Puckering", "renderSurfacePuckering", 0, { col: "1/1", min: 0, max: 100, step: 5 }],
+                ["check", "Embossing", "renderEmbossing", 1, {}],
+                ["number", "Smoothing", "embossingSmoothing", 0, { min: 0, max: 12 }],
+                ["number", "Sheen", "embossingSheen", 0, { min: 0, max: 100, precision: 2, step: 0.05 }],
+                ["number", "Shade", "embossingShade", 0, { min: 0, max: 100, precision: 2, step: 0.05 }],
                 ["check", "Wrinkles", "renderWrinkles", 1, {}],
-                ["number", "smoothing", "thicknessSmoothing", 0, { min: 0, max: 12 }],
                 ["number", "Texture", "renderWrinklesTexture", 0, { min: 0, max: 9 }],
                 ["number", "X Factor", "renderWrinklesXFactor", 0, { min: -10, max: 10, precision: 2, step: 0.1 }],
                 ["number", "Y Factor", "renderWrinklesYFactor", 0, { min: -10, max: 10, precision: 2, step: 0.1 }],
                 ["number", "Z Factor", "renderWrinklesZFactor", 0, { min: -10, max: 10, precision: 2, step: 0.1 }],
+                ["control", "save", "play"]
+            ],
+            
+            filters: [
+                ["range", "Sharpness", "sharpness", 0, { col: "1/1", min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["range", "Brightness", "brightness", 0, { col: "1/1", min: -255, max: 255, step: 1, precision: 0 }],
+                ["range", "Contrast", "contrast", 0, { col: "1/1", min: -255, max: 255, step: 1, precision: 0 }],
+                ["range", "Noise", "noise", 0, { col: "1/1", min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["range", "Blur", "blur", 0, { col: "1/1", min: 0, max: 1, step: 0.01, precision: 2 }],
+                ["control"]
+            ],
 
+            settings: [
+                ["number", "Algorithm", "renderAlgorithm", 0, { min: 0, max: 16 }],
+                ["number", "Edge Nodes", "edgeNodes", 12, { min: 0, max: 32 }],
+                ["number", "Smoothing", "thicknessSmoothing", 0, { min: 0, max: 12 }],
                 ["check", "Face Warp", "renderFaceWarpFloats", 1, {}],
                 ["check", "Face Weft", "renderFaceWeftFloats", 1, {}],
                 ["check", "Back Warp", "renderBackWarpFloats", 1, {}],
@@ -16730,16 +16598,12 @@ $(function() {
                 ["check", "Yarn Background", "renderYarnBackground", 1, {}],
                 ["check", "Blur Background", "blurYarnBackground", 1, {}],
                 ["check", "Yarn Base", "renderYarnBase", 1, {}],
+                ["check", "Yarn Gradients", "renderYarnGradients", 1, {}],
+                ["check", "Yarn Shade", "renderYarnShade", 1, {}],
                 ["check", "Yarn Shadow", "renderYarnShadow", 1, {}],
                 ["check", "Fringe", "renderFringe", 0, {}],
-                ["number", "Fringe Ends", "renderFringeEnds", 0, {
-                    min: 0,
-                    max: 16
-                }],
-                ["number", "Fringe Picks", "renderFringePicks", 0, {
-                    min: 0,
-                    max: 16
-                }],
+                ["number", "Fringe Ends", "renderFringeEnds", 0, { min: 0, max: 16 }],
+                ["number", "Fringe Picks", "renderFringePicks", 0, { min: 0, max: 16 }],
                 ["check", "Pinked", "renderPinked", 0, {}],
                 ["control", "save", "play"]
             ]
@@ -16789,7 +16653,7 @@ $(function() {
                 }
             });
 
-            q.ctx(172, "simulation-container", "simulationDisplay", simulationBoxW, simulationBoxH, true, true);
+            let ctx = q.ctx(172, "simulation-container", "simulationDisplay", simulationBoxW, simulationBoxH, true, true);
 
             //q.context.simulationDisplay.clearRect(0, 0, simulationBoxW, simulationBoxH);
 
@@ -16898,8 +16762,12 @@ $(function() {
 
             // setup scale is always 1. for higher quality and scale calculate at the time of render.
             // xNodes = Warp Ends to Render, yNodes = Weft Picks to Render, intersectionW/H in Pixels, scrollX/Y in threads, xScale Drawing Scale
+            // Edge Threades are added for edge quality render. Edge Thread positions will be outside the canvas.
+            // So bottom left thread on final dispaly canvas will be the first thread on the woven plan. Not the edge thread which is added only for the edge imporovement.
 
             Debug.time("createProfiles");
+
+            let nodes = xNodes * yNodes;
 
             _p.pattern = {
                 warp: [],
@@ -16907,64 +16775,77 @@ $(function() {
             };
 
             _p.thickness = {
-                warp: new Float32Array(xNodes * yNodes),
-                weft: new Float32Array(xNodes * yNodes)
+                warp: new Float32Array(nodes),
+                weft: new Float32Array(nodes)
             };
 
             _p.position = {
-                x: new Float32Array(xNodes * yNodes),
-                y: new Float32Array(xNodes * yNodes)
+                x: new Float32Array(nodes),
+                y: new Float32Array(nodes)
             };
 
             _p.startPos = {
-                warp: new Float32Array(xNodes * yNodes),
-                weft: new Float32Array(xNodes * yNodes)
+                warp: new Float32Array(nodes),
+                weft: new Float32Array(nodes)
             };
 
             _p.lastPos = {
-                warp: new Float32Array(xNodes * yNodes),
-                weft: new Float32Array(xNodes * yNodes)
+                warp: new Float32Array(nodes),
+                weft: new Float32Array(nodes)
             };
 
             _p.distortion = {
-                warp: new Float32Array(xNodes * yNodes),
-                weft: new Float32Array(xNodes * yNodes)
+                warp: new Float32Array(nodes),
+                weft: new Float32Array(nodes)
             };
 
             _p.deflection = {
-                warp: new Float32Array(xNodes * yNodes),
-                weft: new Float32Array(xNodes * yNodes)
+                warp: new Float32Array(nodes),
+                weft: new Float32Array(nodes)
             };
 
-            for (let x = 0; x < xNodes; ++x) {
-                let posx = loopNumber(x - scrollX, q.pattern.warp.length);
-                let colorCode = q.pattern.warp[posx];
+            _p.embossing = {
+                warp: new Float32Array(nodes),
+                weft: new Float32Array(nodes)
+            };
+
+            var warpPattern = q.pattern.warp;
+            var weftPattern = q.pattern.weft;
+            var warpPatternLen = q.pattern.warp.length;
+            var weftPatternLen = q.pattern.weft.length;
+            var paletteColors = q.palette.colors;
+            var yarns = q.graph.yarns;
+            var thicknessProfile = _p.thickness;
+            var positionProfile = _p.position;
+            var i, x, y;
+
+            for (x = 0; x < xNodes; ++x) {
+                let posx = loopNumber(x - scrollX, warpPatternLen);
+                let colorCode = warpPattern[posx];
                 _p.pattern.warp[x] = colorCode;
-                let color = q.palette.colors[colorCode];
+                let color = paletteColors[colorCode];
                 let yarnId = sp.yarnConfig == "palette" ? color.yarnId : sp.warpYarnId;
-                let yarn = q.graph.yarns[yarnId] !== undefined ? q.graph.yarns[yarnId] : q.graph.yarns.system_0;
+                let yarn = yarns[yarnId] !== undefined ? yarns[yarnId] : yarns.system_0;
                 let yarnThickness = Textile.getYarnDia(yarn.number, yarn.number_system, "px", sp.screenDPI);
-                for (let y = 0; y < yNodes; ++y) {
-                    let i = y * xNodes + x;
-                    _p.thickness.warp[i] = yarnThickness;
-                    // Edge Threades are added for edge quality render. Edge Thread positions will be outside the canvas.
-                    // So bottom left thread on final dispaly canvas will be the first thread on the woven plan. Not the edge thread which is added only for the edge imporovement.
-                    _p.position.x[i] = intersectionW * (x + 0.5 - edgeNodes);
+                for (y = 0; y < yNodes; ++y) {
+                    i = y * xNodes + x;
+                    thicknessProfile.warp[i] = yarnThickness;
+                    positionProfile.x[i] = intersectionW * (x + 0.5 - edgeNodes);
                 }
             }
 
-            for (let y = 0; y < yNodes; ++y) {
-                let posy = loopNumber(y - scrollY, q.pattern.weft.length);
-                let colorCode = q.pattern.weft[posy];
+            for (y = 0; y < yNodes; ++y) {
+                let posy = loopNumber(y - scrollY, weftPatternLen);
+                let colorCode = weftPattern[posy];
                 _p.pattern.weft[y] = colorCode;
-                let color = q.palette.colors[colorCode];
+                let color = paletteColors[colorCode];
                 let yarnId = sp.yarnConfig == "palette" ? color.yarnId : sp.weftYarnId;
-                let yarn = q.graph.yarns[yarnId] !== undefined ? q.graph.yarns[yarnId] : q.graph.yarns.system_0;
+                let yarn = yarns[yarnId] !== undefined ? yarns[yarnId] : yarns.system_0;
                 let yarnThickness = Textile.getYarnDia(yarn.number, yarn.number_system, "px", sp.screenDPI);
-                for (let x = 0; x < xNodes; ++x) {
-                    let i = y * xNodes + x;
-                    _p.thickness.weft[i] = yarnThickness;
-                    _p.position.y[i] = intersectionH * (y + 0.5 - edgeNodes);
+                for (x = 0; x < xNodes; ++x) {
+                    i = y * xNodes + x;
+                    thicknessProfile.weft[i] = yarnThickness;
+                    positionProfile.y[i] = intersectionH * (y + 0.5 - edgeNodes);
                 }
             }
 
@@ -17009,6 +16890,7 @@ $(function() {
         },
 
         createSurfacePuckering: async function(xNodes, yNodes) {
+            Debug.time("createSurfacePuckering");
             let url = './simulation/puckering_02.png';
             let file = await imageToImageData(url);
             return new Promise((resolve, reject) => {
@@ -17034,6 +16916,7 @@ $(function() {
                         _p.thickness.weft[i] *= (1 + displacement_z * factor);
                     }
                 }
+                Debug.time("createSurfacePuckering", "simulation");
                 resolve();
             });
         },
@@ -17192,80 +17075,78 @@ $(function() {
 
         },
 
-        renderToExport: function(renderW, renderH, exportW, exportH, frame = false) {
+        renderToExport: async function(renderW, renderH, exportW, exportH, frame = false) {
             var ctx_render = q.ctx(61, "noshow", "simulationRender", renderW, renderH, true, false);
             var loadingbar = new Loadingbar("simulationRenderTo", "Preparing Simulation", true, true);
-            q.simulation.renderTo(ctx_render, renderW, renderH, 0, 0, sp.zoom, sp.zoom, sp.renderQuality, async function() {
-                if (renderW !== exportW || renderH !== exportH) {
-                    var ctx_export = q.ctx(61, "noshow", "simulationExport", exportW, exportH, false, false);
-                    await picaResize(ctx_render, ctx_export);
-                    ctx_render = ctx_export;
-                }
+            
+            await q.simulation.renderTo(ctx_render, renderW, renderH, 0, 0, sp.zoom, sp.zoom, sp.renderQuality);
+            if (renderW !== exportW || renderH !== exportH) {
+                var ctx_export = q.ctx(61, "noshow", "simulationExport", exportW, exportH, false, false);
+                await picaResize(ctx_render, ctx_export);
+                ctx_render = ctx_export;
+            }
 
-                if (frame) {
-                    let border = 10;
-                    let frameW = exportW + 20;
-                    let frameH = exportH + 60;
-                    let ctx_frame = q.ctx(61, "noshow", "simulationFrame", frameW, frameH, false, false);
+            if (frame) {
+                let border = 10;
+                let frameW = exportW + 20;
+                let frameH = exportH + 60;
+                let ctx_frame = q.ctx(61, "noshow", "simulationFrame", frameW, frameH, false, false);
 
-                    ctx_frame.fillStyle = '#F0F0F0';
-                    ctx_frame.fillRect(0, 0, frameW, frameH);
+                ctx_frame.fillStyle = '#F0F0F0';
+                ctx_frame.fillRect(0, 0, frameW, frameH);
 
-                    ctx_frame.fillStyle = '#FFFFFF';
-                    ctx_frame.fillRect(border - 1, border - 1, exportW + 2, exportH + 2);
+                ctx_frame.fillStyle = '#FFFFFF';
+                ctx_frame.fillRect(border - 1, border - 1, exportW + 2, exportH + 2);
 
-                    ctx_frame.drawImage(ctx_render.canvas, border, border);
+                ctx_frame.drawImage(ctx_render.canvas, border, border);
 
-                    let logo = await Pdf.getImageFromURL(Pdf.wve_app_logo);
-                    let logoW = logo.width;
-                    let logoH = logo.height;
-                    ctx_frame.drawImage(logo, Math.round(frameW / 2) - Math.round(logoW / 2), frameH - border - logoH);
+                let logo = await Pdf.getImageFromURL(Pdf.wve_app_logo);
+                let logoW = logo.width;
+                let logoH = logo.height;
+                ctx_frame.drawImage(logo, Math.round(frameW / 2) - Math.round(logoW / 2), frameH - border - logoH);
 
-                    ctx_frame.textAlign = "center";
-                    ctx_frame.fillStyle = '#222222';
-                    ctx_frame.font = "10px Verdana";
-                    ctx_frame.fillText(app.project.title, frameW / 2, frameH - 30);
+                ctx_frame.textAlign = "center";
+                ctx_frame.fillStyle = '#222222';
+                ctx_frame.font = "10px Verdana";
+                ctx_frame.fillText(app.project.title, frameW / 2, frameH - 30);
 
-                    ctx_render = ctx_frame;
-                }
+                ctx_render = ctx_frame;
+            }
 
-                saveCanvasAsImage(ctx_render.canvas, "simulation-image.png");
-                loadingbar.remove();
-
-            });
+            saveCanvasAsImage(ctx_render.canvas, "simulation-image.png");
+            loadingbar.remove();
         },
 
-        renderToDataurl: function(callback){
+        renderToDataurl: async function(callback){
             var canvasW = 1000;
             var canvasH = 1000;
             var context = get_ctx('server_save_simulation_dataurl_canvas', 'noshow', canvasW, canvasH);
             var loadingbar = new Loadingbar("simulationRenderTo", "Preparing Simulation", true, true);
-            this.renderTo(context, canvasW, canvasH, 0, 0, sp.zoom, sp.zoom, sp.renderQuality, function() {
-                var dataurl = context.canvas.toDataURL("image/png");
-                var unixTimeStamp = Math.round((new Date()).getTime() / 1000).toString(16).toUpperCase();
-                var fileName = "dobby_simulation_" + unixTimeStamp;
-                saveDataurlToServer(dataurl, fileName).then((res) => {
-                    if ( res == "0" ){
-                        console.log("Simulation save: fail!");
-                    } else {
-                        console.log("Simulation save: " + res);
-                    }
-                    loadingbar.remove();
-                    callback();
-                });
+
+            await q.simulation.renderTo(context, canvasW, canvasH, 0, 0, sp.zoom, sp.zoom, sp.renderQuality);
+            var dataurl = context.canvas.toDataURL("image/png");
+            var unixTimeStamp = Math.round((new Date()).getTime() / 1000).toString(16).toUpperCase();
+            var fileName = "dobby_simulation_" + unixTimeStamp;
+            saveDataurlToServer(dataurl, fileName).then((res) => {
+                if ( res == "0" ){
+                    console.log("Simulation save: fail!");
+                } else {
+                    console.log("Simulation save: " + res);
+                }
+                loadingbar.remove();
+                callback();
             });
         },
 
         // Simulation
-        render: function(instanceId) {
+        render: async function(instanceId) {
             Debug.time("simulation.render");
             var loadingbar = new Loadingbar("simulationRenderTo", "Preparing Simulation", true, true);
-            this.renderTo(q.context.simulationDisplay, this.ctxW, this.ctxH, this.scroll.x, this.scroll.y, sp.zoom, sp.zoom, sp.renderQuality, function() {
-                q.simulation.needsUpdate = false;
-                q.simulation.created = true;
-                loadingbar.remove();
-                Debug.timeEnd("simulation.render", "perfS");
-            });
+            await q.simulation.renderTo(q.context.simulationDisplay, this.ctxW, this.ctxH, this.scroll.x, this.scroll.y, sp.zoom, sp.zoom, sp.renderQuality, true);
+            q.simulation.needsUpdate = false;
+            q.simulation.created = true;
+            loadingbar.remove();
+            Debug.timeEnd("simulation.render", "perfS");
         },
 
         get intersection() {
@@ -17383,14 +17264,160 @@ $(function() {
 
         },
 
-        renderTo: async function(ctx, ctxW, ctxH, scrollX = 0, scrollY = 0, xScale = 1, yScale = 1, quality = 1, callback = false) {
+        createEmbossing: function (xNodes, yNodes) {
 
-            // console.log(arguments);
-            let graphId = q.graphId(ctx.canvas.id);
-            //console.log(["q.simulation.renderTo", graphId]);
+            Debug.time("createEmbossing");
+
+            var minFloatSize = 0;
+            var maxFloatSize = 0;
+            var jitter = 0.25;
+
+            // Typed array for profile is aligned bottom left;
+
+            var x, y, i, floatS;
+            var tl, tc, tr, ml, mc, mr, bl, bc, br;
+
+            var n = xNodes * yNodes;
+            var warpFloatSizes = q.graph.floats.sizeProfile.warp;
+            var weftFloatSizes = q.graph.floats.sizeProfile.weft;
+
+            var wpT = _p.thickness.warp;
+            var wfT = _p.thickness.weft;
+            
+            var wpE = _p.embossing.warp;
+            var wfE = _p.embossing.weft;
+
+            // Warp Kernel Matrix
+            var wpK = [2, 1, 0, 1, 0, -1, 0, -1, -2];
+            
+            // Weft Kernel Matrix
+            var wfK = [-2, -1, 0, -1, 0, 1, 0, 1, 2];
+
+            for (i = 0; i < n; i++) {
+
+                floatS = warpFloatSizes[i];
+
+                mc = i;
+                mr = i + 1;
+                ml = i - 1;
+                tc = i + xNodes;
+                tl = tc - 1;
+                tr = tc + 1;
+                bc = i - xNodes;
+                bl = bc - 1;
+                br = bc + 1;
+
+                if (floatS > minFloatSize) {
+                    wpE[tl] += wpK[0] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[tc] += wpK[1] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[tr] += wpK[2] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[ml] += wpK[3] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[mc] += wpK[4] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[mr] += wpK[5] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[bl] += wpK[6] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[bc] += wpK[7] * floatS * (1 + getRandom(-jitter, jitter));
+                    wpE[br] += wpK[8] * floatS * (1 + getRandom(-jitter, jitter));
+                }
+
+                floatS = weftFloatSizes[i];
+
+                if (floatS > minFloatSize) {
+                    wfE[tl] += wfK[0] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[tc] += wfK[1] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[tr] += wfK[2] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[ml] += wfK[3] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[mc] += wfK[4] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[mr] += wfK[5] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[bl] += wfK[6] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[bc] += wfK[7] * floatS * (1 + getRandom(-jitter, jitter));
+                    wfE[br] += wfK[8] * floatS * (1 + getRandom(-jitter, jitter));
+                }
+
+            }
+
+            // Convert embossing prfile to 0-1
+            let wpeMax = arrMax(wpE);
+            let wpeMin = arrMin(wpE);
+            let wfeMax = arrMax(wfE);
+            let wfeMin = arrMin(wfE);
+            let wpeDelta = wpeMax - wpeMin;
+            let wfeDelta = wfeMax - wfeMin;
+            for (let i = 0; i < n; i++) {
+                wpE[i] /= wpeDelta;
+                wfE[i] /= wpeDelta;
+            }
+            
+            Debug.timeEnd("createEmbossing", "simulation");
+
+        },
+
+        embossingSmoothing: function(xNodes, yNodes, strength = 1) {
+
+            Debug.time("embossingSmoothing");
+
+            let smoothProfile = {
+                warp: new Float32Array(xNodes * yNodes),
+                weft: new Float32Array(xNodes * yNodes)
+            };
+            for (let s = 0; s < strength; s++) {
+                for (let y = 0; y < yNodes; ++y) {
+                    for (let x = 0; x < xNodes; ++x) {
+                        let i = y * xNodes + x;
+                        let r = _p.embossing.weft[i + 1] ?? _p.embossing.weft[i];
+                        let l = _p.embossing.weft[i - 1] ?? _p.embossing.weft[i];
+                        let t = _p.embossing.weft[i + xNodes] ?? _p.embossing.weft[i];
+                        let b = _p.embossing.weft[i - xNodes] ?? _p.embossing.weft[i];
+                        let tl = _p.embossing.weft[i + xNodes - 1] ?? _p.embossing.weft[i];
+                        let tr = _p.embossing.weft[i + xNodes + 1] ?? _p.embossing.weft[i];
+                        let bl = _p.embossing.weft[i - xNodes - 1] ?? _p.embossing.weft[i];
+                        let br = _p.embossing.weft[i - xNodes + 1] ?? _p.embossing.weft[i];
+                        smoothProfile.weft[i] = (r + l + t + b + tl + bl + tr + br) / 8;
+                    }
+                }
+                for (let x = 0; x < xNodes; ++x) {
+                    for (let y = 0; y < yNodes; ++y) {
+                        let i = y * xNodes + x;
+                        let r = _p.embossing.weft[i + 1] ?? _p.embossing.warp[i];
+                        let l = _p.embossing.warp[i - 1] ?? _p.embossing.warp[i];
+                        let t = _p.embossing.warp[i + xNodes] ?? _p.embossing.warp[i];
+                        let b = _p.embossing.warp[i - xNodes] ?? _p.embossing.warp[i];
+                        let tl = _p.embossing.warp[i + xNodes - 1] ?? _p.embossing.warp[i];
+                        let tr = _p.embossing.warp[i + xNodes + 1] ?? _p.embossing.warp[i];
+                        let bl = _p.embossing.warp[i - xNodes - 1] ?? _p.embossing.warp[i];
+                        let br = _p.embossing.warp[i - xNodes + 1] ?? _p.embossing.warp[i];
+                        smoothProfile.warp[i] = (r + l + t + b + tl + bl + tr + br) / 8;
+                    }
+                }
+                _p.embossing.weft = smoothProfile.weft;
+                _p.embossing.warp = smoothProfile.warp;
+            }
+
+            Debug.timeEnd("embossingSmoothing", "simulation");
+        },
+
+        applyFilters: function(sourceImageData, targetImageData){
+            var w = sourceImageData.width;
+            var h = sourceImageData.height;
+            var originalPixels = new ImageData( new Uint8ClampedArray(sourceImageData.data), w, h );
+            var pixels = targetImageData;
+            var pixels8 = pixels.data;
+            pixels8.set(originalPixels.data);
+
+            if ( sp.sharpness ) Filter.sharpness(pixels8, w, h, sp.sharpness);
+            if ( sp.brightness ) Filter.brightness(pixels8, sp.brightness);
+            if ( sp.contrast ) Filter.contrast(pixels8, sp.contrast);
+            if ( sp.noise ) Filter.noise(pixels8, sp.noise);
+            if ( sp.blur ) Filter.blur(pixels8, w, h, sp.blur);
+        },
+
+        // Quick Simulation
+        quick: function(ctx, ctxW, ctxH, scrollX = 0, scrollY = 0){
 
             Debug.time("Total");
+            
             Debug.time("Setup");
+
+            let drawX, drawY;
 
             let weave = q.graph.weave2D8;
 
@@ -17402,186 +17429,230 @@ $(function() {
             let weaveW = weave.length;
             let weaveH = weave[0].length;
 
-            let ctx_output;
-
-            if (sp.mode == "scaled" && quality > 1) {
-                xScale *= quality;
-                yScale *= quality;
-                ctx_output = ctx;
-                ctxW = Math.round(ctxW * quality);
-                ctxH = Math.round(ctxH * quality);
-                ctx = q.ctx(0, "noshow", "simulationDraw", ctxW, ctxH, true, false);
-                ctx.clearRect(0, 0, ctxW, ctxH);
-            }
-
             let pixels = q.pixels[ctx.canvas.id];
             let pixels8 = q.pixels8[ctx.canvas.id];
             let pixels32 = q.pixels32[ctx.canvas.id];
 
-            if (sp.renderAlgorithm == 0 || sp.renderAlgorithm == 1 || sp.renderAlgorithm == 2) {
-                let simulationBackground = hexToRgba1(sp.backgroundColor);
-                buffRectSolid(app.origin, pixels8, pixels32, ctxW, ctxH, 0, 0, ctxW, ctxH, simulationBackground);
-            } else {
-                buffRectSolid(app.origin, pixels8, pixels32, ctxW, ctxH, 0, 0, ctxW, ctxH, { r: 255, g: 255, b: 255, a: 0 });
+            let yarnColors = {};
+            let fillStyle = sp.drawMethod == "flat" ? "color32" : "gradient";
+            ["warp", "weft"].forEach(yarnSet => {
+                let yarnThickness = sp[yarnSet + "Size"];
+                yarnColors[yarnSet] = {};
+                q.pattern.colors(yarnSet).forEach(code => {
+                    if (fillStyle == "color32") {
+                        yarnColors[yarnSet][code] = q.palette.colors[code].color32;
+                    } else if ("gradient") {
+                        yarnColors[yarnSet][code] = q.palette.getGradient(code, yarnThickness);
+                    }
+                });
+            });
+
+            // let data = {
+            //   				warp: q.pattern.warp,
+            //   				weft: q.pattern.weft,
+            //   				ends: weaveW,
+            //   				picks: weaveH,
+            //   				warpSize: sp.warpSize,
+            //   				weftSize: sp.weftSize,
+            //   				warpSpace: sp.warpSpace,
+            //   				weftSpace: sp.weftSpace,
+            //   				scrollX: scrollX,
+            //   				scrollY: scrollY,
+            //   				weave: q.graph.weaveBuffer,
+            //   				pixels32Buffer: pixels32.buffer,
+            //   				drawMethod: sp.drawMethod,
+            //   				yarnColors: yarnColors,
+            //   				ctxW: ctxW,
+            //   				ctxH: ctxH,
+            //   				fillStyle: sp.fillStyle,
+            //   				origin: app.origin
+            //   			};
+
+            // simulationWorkerPromise(data).then(e => {
+            // 	pixels32 = new Int32Array(e);
+            // 	ctx.putImageData(pixels, 0, 0);
+
+            // 	if (typeof callback === "function") callback();
+
+            // 	Debug.timeEnd("warp floats", "simulation");
+            // });
+
+            // simulationWorker.postMessage({
+            // 	warp: q.pattern.warp,
+            // 	weft: q.pattern.weft,
+            // 	ends: weaveW,
+            // 	picks: weaveH,
+            // 	warpSize: sp.warpSize,
+            // 	weftSize: sp.weftSize,
+            // 	warpSpace: sp.warpSpace,
+            // 	weftSpace: sp.weftSpace,
+            // 	scrollX: scrollX,
+            // 	scrollY: scrollY,
+            // 	weave: q.graph.weaveBuffer,
+            // 	pixels32: pixels32.buffer,
+            // 	drawMethod: sp.drawMethod,
+            // 	yarnColors: yarnColors,
+            // 	ctxW: ctxW,
+            // 	ctxH: ctxH,
+            // 	fillStyle: sp.fillStyle,
+            // 	origin: app.origin
+            // });
+
+            weave = weave.transform2D8("112", "shiftxy", scrollX, scrollY);
+
+            let pattern = {
+                warp: q.pattern.warp.shift1D(scrollX),
+                weft: q.pattern.weft.shift1D(scrollY)
+            };
+
+            let intersectionW = sp.warpSize + sp.warpSpace;
+            let intersectionH = sp.weftSize + sp.weftSpace;
+
+            Debug.timeEnd("setup", "simulation");
+            Debug.time("Draw");
+
+            let halfWarpSpace = Math.floor(sp.warpSpace / 2);
+            let halfWeftSpace = Math.floor(sp.weftSpace / 2);
+
+            let xIntersections = Math.ceil(ctxW / intersectionW);
+            let yIntersections = Math.ceil(ctxH / intersectionH);
+
+            Debug.time("draw.full.warp");
+
+            let bgColor32 = hex_rgba32(sp.backgroundColor);
+            drawSolidRect32(app.origin, pixels32, ctxW, ctxH, 0, 0, ctxW, ctxH, bgColor32);
+
+            // warp full threads
+            for (let x = 0; x < xIntersections; ++x) {
+                drawX = x * intersectionW + halfWarpSpace;
+                let code = pattern.warp[x % pattern.warp.length];
+                drawRectBuffer(app.origin, pixels32, drawX, 0, sp.warpSize, ctxH, ctxW, ctxH, fillStyle, yarnColors.warp[code], 1, "h");
             }
 
-            Debug.timeEnd("Setup", "simulation");
-            Debug.time("Calculations");
+            Debug.timeEnd("draw.full.warp", "simulation");
 
-            if (sp.mode === "quick") {
+            Debug.time("draw.full.weft");
 
-                let drawX, drawY;
+            // weft full threads
+            for (let y = 0; y < yIntersections; ++y) {
+                drawY = y * intersectionH + halfWeftSpace;
+                let code = pattern.weft[y % pattern.weft.length];
+                drawRectBuffer(app.origin, pixels32, 0, drawY, ctxW, sp.weftSize, ctxW, ctxH, fillStyle, yarnColors.weft[code], 1, "v");
+            }
 
-                let yarnColors = {};
-                let fillStyle = sp.drawMethod == "flat" ? "color32" : "gradient";
-                ["warp", "weft"].forEach(yarnSet => {
-                    let yarnThickness = sp[yarnSet + "Size"];
-                    yarnColors[yarnSet] = {};
-                    q.pattern.colors(yarnSet).forEach(code => {
-                        if (fillStyle == "color32") {
-                            yarnColors[yarnSet][code] = q.palette.colors[code].color32;
-                        } else if ("gradient") {
-                            yarnColors[yarnSet][code] = q.palette.getGradient(code, yarnThickness);
-                        }
-                    });
-                });
+            Debug.timeEnd("draw.full.warp", "simulation");
 
-                Debug.timeEnd("Calculations", "simulation");
-                Debug.time("Calculations2");
+            Debug.time("draw.warp.floats");
 
-                // let data = {
-                //   				warp: q.pattern.warp,
-                //   				weft: q.pattern.weft,
-                //   				ends: weaveW,
-                //   				picks: weaveH,
-                //   				warpSize: sp.warpSize,
-                //   				weftSize: sp.weftSize,
-                //   				warpSpace: sp.warpSpace,
-                //   				weftSpace: sp.weftSpace,
-                //   				scrollX: scrollX,
-                //   				scrollY: scrollY,
-                //   				weave: q.graph.weaveBuffer,
-                //   				pixels32Buffer: pixels32.buffer,
-                //   				drawMethod: sp.drawMethod,
-                //   				yarnColors: yarnColors,
-                //   				ctxW: ctxW,
-                //   				ctxH: ctxH,
-                //   				fillStyle: sp.fillStyle,
-                //   				origin: app.origin
-                //   			};
-
-                // simulationWorkerPromise(data).then(e => {
-                // 	pixels32 = new Int32Array(e);
-                // 	ctx.putImageData(pixels, 0, 0);
-
-                // 	if (typeof callback === "function") callback();
-
-                // 	Debug.timeEnd("warp floats", "simulation");
-                // });
-
-                // simulationWorker.postMessage({
-                // 	warp: q.pattern.warp,
-                // 	weft: q.pattern.weft,
-                // 	ends: weaveW,
-                // 	picks: weaveH,
-                // 	warpSize: sp.warpSize,
-                // 	weftSize: sp.weftSize,
-                // 	warpSpace: sp.warpSpace,
-                // 	weftSpace: sp.weftSpace,
-                // 	scrollX: scrollX,
-                // 	scrollY: scrollY,
-                // 	weave: q.graph.weaveBuffer,
-                // 	pixels32: pixels32.buffer,
-                // 	drawMethod: sp.drawMethod,
-                // 	yarnColors: yarnColors,
-                // 	ctxW: ctxW,
-                // 	ctxH: ctxH,
-                // 	fillStyle: sp.fillStyle,
-                // 	origin: app.origin
-                // });
-
-                weave = weave.transform2D8("112", "shiftxy", scrollX, scrollY);
-                Debug.timeEnd("Calculations2", "simulation");
-
-                let pattern = {
-                    warp: q.pattern.warp.shift1D(scrollX),
-                    weft: q.pattern.weft.shift1D(scrollY)
-                };
-
-                let intersectionW = sp.warpSize + sp.warpSpace;
-                let intersectionH = sp.weftSize + sp.weftSpace;
-
-                Debug.time("Draw");
-
-                let halfWarpSpace = Math.floor(sp.warpSpace / 2);
-                let halfWeftSpace = Math.floor(sp.weftSpace / 2);
-
-                let xIntersections = Math.ceil(ctxW / intersectionW);
-                let yIntersections = Math.ceil(ctxH / intersectionH);
-
-                Debug.time("full warp");
-
-                // warp full threads
-                for (let x = 0; x < xIntersections; ++x) {
-                    drawX = x * intersectionW + halfWarpSpace;
-                    let code = pattern.warp[x % pattern.warp.length];
-                    drawRectBuffer(app.origin, pixels32, drawX, 0, sp.warpSize, ctxH, ctxW, ctxH, fillStyle, yarnColors.warp[code], 1, "h");
-                }
-
-                Debug.timeEnd("full warp", "simulation");
-
-                Debug.time("full weft");
-
-                // weft full threads
+            // warp floats
+            for (let x = 0; x < xIntersections; ++x) {
+                let arrX = loopNumber(x, weaveW);
+                drawX = x * intersectionW + halfWarpSpace;
+                let code = pattern.warp[x % pattern.warp.length];
                 for (let y = 0; y < yIntersections; ++y) {
-                    drawY = y * intersectionH + halfWeftSpace;
-                    let code = pattern.weft[y % pattern.weft.length];
-                    drawRectBuffer(app.origin, pixels32, 0, drawY, ctxW, sp.weftSize, ctxW, ctxH, fillStyle, yarnColors.weft[code], 1, "v");
-                }
-
-                Debug.timeEnd("full weft", "simulation");
-
-                Debug.time("warp floats");
-
-                // warp floats
-                for (let x = 0; x < xIntersections; ++x) {
-                    let arrX = loopNumber(x, weaveW);
-                    drawX = x * intersectionW + halfWarpSpace;
-                    let code = pattern.warp[x % pattern.warp.length];
-                    for (let y = 0; y < yIntersections; ++y) {
-                        let arrY = loopNumber(y, weaveH);
-                        drawY = y * intersectionH;
-                        if (weave[arrX][arrY]) {
-                            drawRectBuffer(app.origin, pixels32, drawX, drawY, sp.warpSize, intersectionH, ctxW, ctxH, fillStyle, yarnColors.warp[code], 1, "h");
-                        }
+                    let arrY = loopNumber(y, weaveH);
+                    drawY = y * intersectionH;
+                    if (weave[arrX][arrY]) {
+                        drawRectBuffer(app.origin, pixels32, drawX, drawY, sp.warpSize, intersectionH, ctxW, ctxH, fillStyle, yarnColors.warp[code], 1, "h");
                     }
                 }
+            }
 
-                ctx.putImageData(pixels, 0, 0);
+            Debug.timeEnd("draw.warp.floats", "simulation");
+            Debug.timeEnd("total", "simulation");
 
-                if (typeof callback === "function") callback();
+            ctx.putImageData(pixels, 0, 0);
 
-                Debug.timeEnd("warp floats", "simulation");
+        },
 
-            } else if (sp.mode === "scaled") {
+        renderTo: function(ctx, ctxW, ctxH, scrollX = 0, scrollY = 0, xScale = 1, yScale = 1, quality = 1, saveOriginalPixels = false){
+            return new Promise( async(resolve, reject) => {
+                if (sp.mode === "quick") {
+                    q.simulation.quick(ctx, ctxW, ctxH, scrollX, scrollY);
+                } else if (sp.mode === "scaled") {
+                    await q.simulation.scaled(ctx, ctxW, ctxH, scrollX, scrollY, xScale, yScale, quality);
+                }
+                if ( saveOriginalPixels ){
+                    let imageData = ctx.getImageData(0,0,ctxW,ctxH);
+                    q.simulation.originalPixels = new ImageData( new Uint8ClampedArray(imageData.data), imageData.width, imageData.height );
+                }
 
-                await delay(10);
+                var canvasId = ctx.canvas.id;
+                var sourcePixels;
+                if ( canvasId == "simulationDisplay" ){
+                    sourcePixels = q.simulation.originalPixels;
+                } else {
+                    sourcePixels = q.pixels[canvasId];
+                }
 
-                let i, j;
+                q.simulation.applyFilters(sourcePixels, sourcePixels);
+                q.context[canvasId].putImageData(sourcePixels, 0, 0);
 
+                resolve();
+            });
+        },
+        
+        scaled: function(ctx, ctxW, ctxH, scrollX = 0, scrollY = 0, xScale = 1, yScale = 1, quality = 1) {
+
+            // console.log(arguments);
+            // let graphId = q.graphId(ctx.canvas.id);
+            //console.log(["q.simulation.renderTo", graphId]);
+        
+            return new Promise( async(resolve, reject) => {
+                
+                Debug.time("Total");
+        
+                Debug.time("Setup");
+        
+                let weave = q.graph.weave2D8;
+        
+                if (!weave || !weave.is2D8()) {
+                    console.log("renderWeaveError");
+                    resolve();
+                    return;
+                }
+        
+                var i, j, x, y, n;
+        
+                let weaveW = weave.length;
+                let weaveH = weave[0].length;
+        
+                let ctx_output;
+        
+                if ( quality > 1 ) {
+                    xScale *= quality;
+                    yScale *= quality;
+                    ctx_output = ctx;
+                    ctxW = Math.round(ctxW * quality);
+                    ctxH = Math.round(ctxH * quality);
+                    ctx = q.ctx(0, "noshow", "simulationDraw", ctxW, ctxH, true, false);
+                    // ctx.clearRect(0, 0, ctxW, ctxH);
+                }
+        
+                let pixels = q.pixels[ctx.canvas.id];
+                let pixels8 = q.pixels8[ctx.canvas.id];
+                let pixels32 = q.pixels32[ctx.canvas.id];
+        
+                let bgColor32 = hex_rgba32(sp.backgroundColor);
+                drawSolidRect32(app.origin, pixels32, ctxW, ctxH, 0, 0, ctxW, ctxH, bgColor32);
+        
                 let warpDensity = sp.warpDensity;
                 let weftDensity = sp.weftDensity;
                 let intersectionW = sp.screenDPI / warpDensity;
                 let intersectionH = sp.screenDPI / weftDensity;
-
-                let edgeNodes = 12; // Extra Threads on each sides for seamless rendering
-
+        
+                let edgeNodes = sp.edgeNodes; // Extra Threads on each sides for seamless rendering
+        
                 let xNodes = Math.ceil(ctxW / intersectionW / xScale) + edgeNodes * 2;
                 let yNodes = Math.ceil(ctxH / intersectionH / yScale) + edgeNodes * 2;
-
+        
                 scrollX += edgeNodes;
                 scrollY += edgeNodes;
-
+        
+                Debug.timeEnd("Setup", "simulation");
+        
+                await delay(10);
+        
                 q.graph.floats.find(weave, {
                     w: xNodes,
                     h: yNodes,
@@ -17589,222 +17660,229 @@ $(function() {
                     sy: scrollY,
                     shuffle: sp.fuzzySurface
                 });
+        
                 q.simulation.createProfiles(xNodes, yNodes, intersectionW, intersectionH, scrollX, scrollY, edgeNodes);
-                q.simulation.induceReedEffect(xNodes, yNodes, xScale);
-
-
+                
+                if ( sp.reedFill > 1 ) q.simulation.induceReedEffect(xNodes, yNodes, xScale);
+        
+                if (sp.renderEmbossing) {
+                    q.simulation.createEmbossing(xNodes, yNodes);
+                    if (sp.embossingSmoothing) {
+                        q.simulation.embossingSmoothing(xNodes, yNodes, sp.embossingSmoothing);
+                    }
+                }
+    
                 if (sp.renderSurfacePuckering) await q.simulation.createSurfacePuckering(xNodes, yNodes);
+        
                 if (sp.renderWrinkles) await q.simulation.createWrinkles(xNodes, yNodes);
-
+        
                 if (sp.thicknessSmoothing) q.simulation.thicknessSmoothing(xNodes, yNodes, sp.thicknessSmoothing);
-
+        
                 let floatGradients = [];
-
+        
                 let shadei;
                 let shade32;
-
+        
                 let warpPosJitter = 0;
                 let weftPosJitter = 0;
                 let warpThicknessJitter = 0;
                 let weftThicknessJitter = 0;
-
+        
                 let warpNodePosJitter = 0;
                 let weftNodePosJitter = 0;
                 let warpNodeThicknessJitter = 0;
                 let weftNodeThicknessJitter = 0;
-
+        
                 let warpfloatLiftFactor = 0;
                 let weftfloatLiftFactor = 0;
                 let warpFloatDistortionFactor = 0;
                 let weftFloatDistortionFactor = 0;
-
+        
                 let warpWiggleRange = 0;
                 let warpWiggleInc = 0;
                 let warpWiggleFrequency = 0;
                 let warpWiggle = 0;
-
+        
                 let weftWiggleRange = 0;
                 let weftWiggleInc = 0;
                 let weftWiggleFrequency = 0;
                 let weftWiggle = 0;
-
-                Debug.timeEnd("Calculations", "simulation");
-
+                
                 if (sp.renderFabricImperfections) {
-
+        
                     Debug.time("Fabric Imperfections");
-
+        
                     warpPosJitter = sp.warpPosJitter;
                     weftPosJitter = sp.weftPosJitter;
                     warpThicknessJitter = sp.warpThicknessJitter;
                     weftThicknessJitter = sp.weftThicknessJitter;
-
+        
                     warpNodePosJitter = sp.warpNodePosJitter;
                     weftNodePosJitter = sp.weftNodePosJitter;
                     warpNodeThicknessJitter = sp.warpNodeThicknessJitter;
                     weftNodeThicknessJitter = sp.weftNodeThicknessJitter;
-
+        
                     warpfloatLiftFactor = sp.warpFloatLift / 100;
                     weftfloatLiftFactor = sp.weftFloatLift / 100;
                     warpFloatDistortionFactor = sp.warpFloatDistortionPercent / 100;
                     weftFloatDistortionFactor = sp.weftFloatDistortionPercent / 100;
-
+        
                     warpWiggleRange = sp.warpWiggleRange;
                     warpWiggleInc = sp.warpWiggleInc;
                     warpWiggleFrequency = sp.warpWiggleFrequency;
-
+        
                     weftWiggleRange = sp.weftWiggleRange;
                     weftWiggleInc = sp.weftWiggleInc;
                     weftWiggleFrequency = sp.weftWiggleFrequency;
-
-                    for (let x = 0; x < xNodes; ++x) {
-
+        
+                    for (x = 0; x < xNodes; ++x) {
+        
                         if (sp.renderFabricImperfections) {
                             warpPosJitter = warpPosJitter ? getRandom(-sp.warpPosJitter, sp.warpPosJitter) : 0;
                             warpThicknessJitter = warpThicknessJitter ? getRandom(-sp.warpThicknessJitter, sp.warpThicknessJitter) : 0;
                         }
-
-                        for (let y = 0; y < yNodes; ++y) {
-
+        
+                        for (y = 0; y < yNodes; ++y) {
+        
                             warpWiggle = Math.random() < warpWiggleFrequency ? warpWiggle + warpWiggleInc : warpWiggle - warpWiggleInc;
                             warpWiggle = limitNumber(warpWiggle, -warpWiggleRange, warpWiggleRange);
-
+        
                             warpNodePosJitter = warpNodePosJitter ? getRandom(-sp.warpNodePosJitter, sp.warpNodePosJitter) / 2 : 0;
                             warpNodeThicknessJitter = warpNodeThicknessJitter ? getRandom(-sp.warpNodeThicknessJitter, sp.warpNodeThicknessJitter) / 2 : 0;
-
+        
                             i = y * xNodes + x;
                             let floatS = q.graph.floats.sizeProfile.warp[i];
                             let floatSAbs = Math.abs(floatS);
                             let floatNode = q.graph.floats.nodeProfile.warp[i];
                             let nodePosRelativeToCenter = centerRatio(floatNode, floatSAbs, 3);
-
+        
                             _p.position.x[i] += warpPosJitter + warpNodePosJitter + warpWiggle;
                             _p.thickness.warp[i] += warpThicknessJitter + warpNodeThicknessJitter;
-
+        
                             // Float Node Thickness. Float is thin at start and end and thick at middle.
                             // _p.thickness.warp[i] *=  1 + nodePosRelativeToCenter;
                             if (floatNode && floatNode < floatSAbs - 1) {
                                 _p.thickness.warp[i] *= 1 + sp.warpFloatExpansion;
                             }
-
+        
                             // Intersection Distortion
                             if (floatNode === 0) {
                                 _p.distortion.weft[i] += weftFloatDistortionFactor * 5;
                             }
-
+        
                             if (floatNode == floatSAbs - 1) {
                                 _p.distortion.weft[i] -= weftFloatDistortionFactor * 5;
                             }
-
+        
                         }
                     }
-
-                    for (let y = 0; y < yNodes; ++y) {
-
+        
+                    for (y = 0; y < yNodes; ++y) {
+        
                         if (sp.renderFabricImperfections) {
-
+        
                             weftPosJitter = weftPosJitter ? getRandom(-sp.weftPosJitter, sp.weftPosJitter) : 0;
                             weftThicknessJitter = weftThicknessJitter ? getRandom(-sp.weftThicknessJitter, sp.weftThicknessJitter) : 0;
-
+        
                         }
-
-                        for (let x = 0; x < xNodes; ++x) {
-
+        
+                        for (x = 0; x < xNodes; ++x) {
+        
                             weftWiggle = Math.random() < weftWiggleFrequency ? weftWiggle + weftWiggleInc : weftWiggle - weftWiggleInc;
                             weftWiggle = limitNumber(weftWiggle, -weftWiggleRange, weftWiggleRange);
-
+        
                             weftNodePosJitter = weftNodePosJitter ? getRandom(-sp.weftNodePosJitter, sp.weftNodePosJitter) / 2 : 0;
                             weftNodeThicknessJitter = weftNodeThicknessJitter ? getRandom(-sp.weftNodeThicknessJitter, sp.weftNodeThicknessJitter) / 2 : 0;
-
+        
                             i = y * xNodes + x;
-
+        
                             // Weft Node Position
                             let floatS = q.graph.floats.sizeProfile.weft[i];
                             let floatSAbs = Math.abs(floatS);
                             let floatNode = q.graph.floats.nodeProfile.weft[i];
                             let nodePosRelativeToCenter = centerRatio(floatNode, floatSAbs, 3);
-
+        
                             _p.position.y[i] += weftPosJitter + weftNodePosJitter + weftWiggle;
-
+        
                             // Weft Node Thickness
                             _p.thickness.weft[i] += weftThicknessJitter + weftNodeThicknessJitter;
-
+        
                             // Float Node Thickness. Float is thin at start and end and thick at middle.
                             //_p.thickness.weft[i] *=  1 + nodePosRelativeToCenter;
                             if (floatNode && floatNode < floatSAbs - 1) {
                                 _p.thickness.weft[i] *= 1 + sp.weftFloatExpansion;
                             }
-
+        
                             // Intersection Distortion
                             if (floatNode === 0) {
                                 _p.distortion.warp[i] += warpFloatDistortionFactor * 5;
                             }
-
+        
                             if (floatNode == floatSAbs - 1) {
                                 _p.distortion.warp[i] -= warpFloatDistortionFactor * 5;
                             }
-
+        
                         }
                     }
-
+        
                     Debug.timeEnd("Fabric Imperfections", "simulation");
-
+        
                 }
-
+        
                 // Render Yarn Material
                 q.pattern.colors("warp").forEach(function(c) {
                     let yarn_id = sp.yarnConfig == "biset" ? sp.warpYarnId : q.palette.colors[c].yarnId;
                     q.simulation.injectYarnThicknessPattern("warp", c, yarn_id, xNodes, yNodes);
                 });
-
+        
                 q.pattern.colors("weft").forEach(function(c) {
                     let yarn_id = sp.yarnConfig == "biset" ? sp.weftYarnId : q.palette.colors[c].yarnId;
                     q.simulation.injectYarnThicknessPattern("weft", c, yarn_id, xNodes, yNodes);
                 });
-
+        
                 if (sp.renderYarnImperfections) {
                     await q.simulation.addYarnImperfectionsToThicknessProfile(xNodes, yNodes, ctxW, ctxH, warpDensity, weftDensity);
                 }
-
+        
                 if (sp.renderFabricImperfections) {
-
+        
                     Debug.time("Distortions");
-
-                    for (let n = 0; n < 2; ++n) {
-
+        
+                    for (n = 0; n < 2; ++n) {
+        
                         // warp Float Distortion Normalize
-                        for (let x = 0; x < xNodes; ++x) {
-                            for (let y = 1; y < yNodes - 1; ++y) {
+                        for (x = 0; x < xNodes; ++x) {
+                            for (y = 1; y < yNodes - 1; ++y) {
                                 i = y * xNodes + x;
                                 j = i + xNodes;
                                 _p.distortion.warp[i] = (_p.distortion.warp[i] + _p.distortion.warp[j]) / 2;
                                 _p.distortion.warp[j] = (_p.distortion.warp[i] + _p.distortion.warp[j]) / 2;
                             }
                         }
-
+        
                         // warp Float Distortion Normalize
-                        for (let y = 0; y < yNodes; ++y) {
-                            for (let x = 1; x < xNodes - 1; ++x) {
+                        for (y = 0; y < yNodes; ++y) {
+                            for (x = 1; x < xNodes - 1; ++x) {
                                 i = y * xNodes + x;
                                 j = i + 1;
                                 _p.distortion.weft[i] = (_p.distortion.weft[i] + _p.distortion.weft[j]) / 2;
                                 _p.distortion.weft[j] = (_p.distortion.weft[i] + _p.distortion.weft[j]) / 2;
                             }
                         }
-
+        
                         // warp Float Distortion Normalize
-                        for (let x = 0; x < xNodes; ++x) {
-                            for (let y = 1; y < yNodes - 1; ++y) {
+                        for (x = 0; x < xNodes; ++x) {
+                            for (y = 1; y < yNodes - 1; ++y) {
                                 i = y * xNodes + x;
                                 j = i - xNodes;
                                 _p.distortion.warp[i] = (_p.distortion.warp[i] + _p.distortion.warp[j]) / 2;
                                 _p.distortion.warp[j] = (_p.distortion.warp[i] + _p.distortion.warp[j]) / 2;
                             }
                         }
-
+        
                         // warp Float Distortion Normalize
-                        for (let y = 0; y < yNodes; ++y) {
-                            for (let x = 1; x < xNodes - 1; ++x) {
+                        for (y = 0; y < yNodes; ++y) {
+                            for (x = 1; x < xNodes - 1; ++x) {
                                 i = y * xNodes + x;
                                 j = i - 1;
                                 _p.distortion.weft[i] = (_p.distortion.weft[i] + _p.distortion.weft[j]) / 2;
@@ -17812,10 +17890,10 @@ $(function() {
                             }
                         }
                     }
-
+        
                     // node distortions
-                    for (let x = 0; x < xNodes; ++x) {
-                        for (let y = 0; y < yNodes; ++y) {
+                    for (x = 0; x < xNodes; ++x) {
+                        for (y = 0; y < yNodes; ++y) {
                             i = y * xNodes + x;
                             _p.position.y[i] += _p.distortion.weft[i];
                             _p.position.x[i] += _p.distortion.warp[i];
@@ -17823,77 +17901,72 @@ $(function() {
                             // _p.position.x[i] += 0;
                         }
                     }
-
+        
                     Debug.timeEnd("Distortions", "simulation");
-
+        
                 }
-
+        
                 // Float Distortion
-                for (let x = 0; x < xNodes; ++x) {
-                    for (let y = 0; y < yNodes; ++y) {
+                for (x = 0; x < xNodes; ++x) {
+                    for (y = 0; y < yNodes; ++y) {
                         i = y * xNodes + x;
                         j = i + xNodes;
                         _p.distortion.warp[i] = (_p.distortion.warp[i] + _p.distortion.warp[j]) / 2;
                         _p.distortion.warp[j] = (_p.distortion.warp[i] + _p.distortion.warp[j]) / 2;
                     }
-
                 }
-
-                Debug.time("Floats");
-
+                
                 /*
-				// Affecting Warp, Affected Weft Floating Distortion
-				for (let x = 1; x < xNodes-1; ++x) {
-					for (let y = 1; y < yNodes-1; ++y) {
-
+                // Affecting Warp, Affected Weft Floating Distortion
+                for (x = 1; x < xNodes-1; ++x) {
+                    for (y = 1; y < yNodes-1; ++y) {
+        
                         var i = y * xNodes + x;
-		
-						let floatS = q.graph.floats.sizeProfile.warp[i];
-						let floatSAbs = Math.abs(floatS);
-						let floatNode = q.graph.floats.nodeProfile.warp[i];
-						let floatCenter = floatS/2;
+        
+                        let floatS = q.graph.floats.sizeProfile.warp[i];
+                        let floatSAbs = Math.abs(floatS);
+                        let floatNode = q.graph.floats.nodeProfile.warp[i];
+                        let floatCenter = floatS/2;
                         
                         var li = y * xNodes + x - 1;
                         var ri = y * xNodes + x + 1;
-
-						let lFloatS = q.graph.floats.sizeProfile.weft[li];
-						let rFloatS = q.graph.floats.sizeProfile.weft[ri];
-
+        
+                        let lFloatS = q.graph.floats.sizeProfile.weft[li];
+                        let rFloatS = q.graph.floats.sizeProfile.weft[ri];
+        
                         var bi = (y-1) * xNodes + x;
                         bar ti = (y+1) * xNodes + x;
-		
-						let bFloatS = q.graph.floats.sizeProfile.warp[bi];
-						let tFloatS = q.graph.floats.sizeProfile.warp[ti];
-		
-						let yDistortion = floatSAbs > 1 ? (floatCenter - floatNode) * smallerRatio(lFloatS, rFloatS) : 0;
-		
-						i = y * xNodes + x;
-						// _p.position.y[i] += yDistortion * FloatDistortionFactor ;
-					}
-				}
-				*/
-
+        
+                        let bFloatS = q.graph.floats.sizeProfile.warp[bi];
+                        let tFloatS = q.graph.floats.sizeProfile.warp[ti];
+        
+                        let yDistortion = floatSAbs > 1 ? (floatCenter - floatNode) * smallerRatio(lFloatS, rFloatS) : 0;
+        
+                        i = y * xNodes + x;
+                        // _p.position.y[i] += yDistortion * FloatDistortionFactor ;
+                    }
+                }
+                */
+        
                 // q.simulation.calculateDeflections(xNodes, yNodes);
-
+        
                 // node distortions
-                // for (let x = 0; x < xNodes; ++x) {
-                // 	for (let y = 0; y < yNodes; ++y) {
+                // for (x = 0; x < xNodes; ++x) {
+                // 	for (y = 0; y < yNodes; ++y) {
                 // 		i = y * xNodes + x;
                 // 		_p.position.y[i] += _p.deflection.weft[i];
                 // 		_p.position.x[i] += _p.deflection.warp[i];
                 // 	}
                 // }
-
-                Debug.time("Floats", "simulation");
-
-                Debug.time("Draw");
-
+                
+                Debug.time("float.gradients");
+        
                 let gradientData;
-
+        
                 let warpColors = q.pattern.colors("warp");
                 let weftColors = q.pattern.colors("weft");
                 let fabricColors = q.pattern.colors("fabric");
-
+        
                 // Float Gradient Data
                 for (let c = 0; c < warpColors.length; c++) {
                     let code = warpColors[c];
@@ -17910,7 +17983,7 @@ $(function() {
                     floatGradients[code + "-light"] = getPixelRGBA(gradientData, 1);
                     floatGradients[code + "-dark"] = getPixelRGBA(gradientData, q.palette.gradientL - 1);
                 }
-
+        
                 for (let c = 0; c < weftColors.length; c++) {
                     let code = weftColors[c];
                     gradientData = q.palette.colors[code].gradientData;
@@ -17926,59 +17999,105 @@ $(function() {
                     floatGradients[code + "-light"] = getPixelRGBA(gradientData, 1);
                     floatGradients[code + "-dark"] = getPixelRGBA(gradientData, q.palette.gradientL - 1);
                 }
+                
+                Debug.timeEnd("float.gradients", "simulation");
 
                 // Prepare Array of Floats to render
                 let dFloats = [];
-
-                for (let n = q.graph.floats.back.sizes.length - 1; n >= 0; --n) {
-                    let floatS = q.graph.floats.back.sizes[n];
-                    let floatsToRender = q.graph.floats.back[floatS];
-                    for (i = 0; i < floatsToRender.length; i++) {
-                        let floatObj = floatsToRender[i];
-                        if ((sp.renderBackWeftFloats && floatObj.yarnSet == "weft") || (sp.renderBackWarpFloats && floatObj.yarnSet == "warp")) {
-                            dFloats.push(floatObj);
+                var faceFloats = q.graph.floats.face;
+                var faceFloatSizes = faceFloats.sizes;
+                var backFloats = q.graph.floats.back;
+                var backFloatSizes = backFloats.sizes;
+                
+                let renderBackWarpFloats = sp.renderBackWarpFloats;
+                let renderBackWeftFloats = sp.renderBackWeftFloats;
+                let renderFaceWarpFloats = sp.renderFaceWarpFloats;
+                let renderFaceWeftFloats = sp.renderFaceWeftFloats;
+                
+                if ( renderBackWarpFloats || renderBackWeftFloats ){
+                    Debug.time("sort.floats.back");
+                    // Draw large Floats First at back
+                    for (n = backFloatSizes.length - 1; n >= 0; n--) {
+                        let size = backFloatSizes[n];
+                        let floats = backFloats[size];
+                        for (i = 0; i < floats.length; i++) {
+                            let float = floats[i];
+                            if ( (renderBackWarpFloats && float.yarnSet == "warp") || (renderBackWeftFloats && float.yarnSet == "weft") ){
+                                dFloats.push(float);
+                            }
                         }
                     }
+                    Debug.timeEnd("sort.floats.back", "simulation");
                 }
+                
+                if ( renderFaceWarpFloats || renderFaceWeftFloats ){
+                    Debug.time("sort.floats.face");
+                    if ( sp.yarnConfig == "biset" ){
 
-                let fabricColorsGroupByDenier = {};
-                let paletteYarnDeniers = [];
-                let yarnDenier;
-                for (let n = 0; n < fabricColors.length; n++) {
-                    let code = fabricColors[n];
-                    let color = q.palette.colors[code];
-                    yarnDenier = Textile.convertYarnNumber(color.yarn, color.system, "denier");
-                    if (fabricColorsGroupByDenier[yarnDenier] == undefined) {
-                        fabricColorsGroupByDenier[yarnDenier] = [];
-                        paletteYarnDeniers.push(yarnDenier);
-                    }
-                    fabricColorsGroupByDenier[yarnDenier].push(code);
-                }
-                paletteYarnDeniers.sort((a, b) => a - b);
-
-                // Draw Smallest Floats First
-                for (let n = 0; n < q.graph.floats.face.sizes.length; ++n) {
-                    // Draw Finer Yarn First
-                    paletteYarnDeniers.forEach(function(denierToRender) {
-                        let floatS = q.graph.floats.face.sizes[n];
-                        let floatsToRender = q.graph.floats.face[floatS];
-                        let floatCount = floatsToRender.length;
-                        for (i = 0; i < floatCount; i++) {
-                            let floatObj = floatsToRender[i];
-                            if (fabricColorsGroupByDenier[denierToRender].includes(_p.pattern[floatObj.yarnSet][floatObj.threadi])) {
-                                if ((sp.renderFaceWeftFloats && floatObj.yarnSet == "weft") || (sp.renderFaceWarpFloats && floatObj.yarnSet == "warp")) {
-                                    dFloats.push(floatObj);
+                        // Draw small Floats First at back
+                        for (n = 0; n < faceFloatSizes.length; n++) {
+                            let size = faceFloatSizes[n];
+                            let floats = faceFloats[size];
+                            for (i = 0; i < floats.length; i++) {
+                                let float = floats[i];
+                                if ( (renderFaceWarpFloats && float.yarnSet == "warp") || (renderFaceWeftFloats && float.yarnSet == "weft") ){
+                                    dFloats.push(float);
                                 }
                             }
                         }
-                    });
-                }
 
+                    } else {
+
+                        // Render Thicker threads at top
+                        let fabricCodesGroupByDenier = {};
+                        let deniers = [];
+                        let colors = q.palette.colors;
+                        let yarns = q.graph.yarns;
+                        for (n = 0; n < fabricColors.length; n++) {
+                            let code = fabricColors[n];
+                            let yarnId = colors[code].yarnId;
+                            let yarn = yarns[yarnId] !== undefined ? yarns[yarnId] : yarns.system_0;
+                            let yarnDenier = ~~Textile.convertYarnNumber(yarn.number, yarn.number_system, "denier");
+                            if (fabricCodesGroupByDenier[yarnDenier] == undefined) {
+                                fabricCodesGroupByDenier[yarnDenier] = [];
+                                deniers.push(yarnDenier);
+                            }
+                            fabricCodesGroupByDenier[yarnDenier].push(code);
+                        }
+
+                        // Sort deniers from thin to thick
+                        deniers.sort((a, b) => a - b);
+                        
+                        let patterns = _p.pattern;
+                        for (n = 0; n < faceFloatSizes.length; n++) {
+                            // Draw Finer Yarn First
+                            deniers.forEach(function(denier) {
+                                let size = faceFloatSizes[n];
+                                let floats = faceFloats[size];
+                                let sameDenierCodes = fabricCodesGroupByDenier[denier];
+                                for (i = 0; i < floats.length; i++) {
+                                    let float = floats[i];
+                                    let code = patterns[float.yarnSet][float.threadi];
+                                    if ( sameDenierCodes.includes(code) ) {
+                                        if ( (renderFaceWarpFloats && float.yarnSet == "warp") || (renderFaceWeftFloats && float.yarnSet == "weft") ){
+                                            dFloats.push(float);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                    }
+                    Debug.timeEnd("sort.floats.face", "simulation");
+                }
+                
                 // Calculate Float Node Lengths
-                for (i = 0; i < dFloats.length; i++) {
+                Debug.time("calculate.nodes.lengths");
+                for (i = 0; i < dFloats.length ; i++) {
                     calculateNodeLengths(origin, ctxW, xNodes, yNodes, _p.position, _p.thickness, _p.startPos, _p.lastPos, dFloats[i]);
                 }
-
+                Debug.timeEnd("calculate.nodes.lengths", "simulation");
+        
                 let renderParams = {
                     origin: app.origin,
                     pixels8: pixels8,
@@ -17993,39 +18112,51 @@ $(function() {
                     warpLift: sp.warpFloatLift,
                     weftLift: sp.weftFloatLift,
                     warpExpansion: sp.warpFloatExpansion,
-                    weftExpansion: sp.weftFloatExpansion
-                };
+                    weftExpansion: sp.weftFloatExpansion,
+                    embossingSheen: sp.embossingSheen,
+                    embossingShade: sp.embossingShade,
+                    
+                    drawBackground: sp.renderYarnBackground,
+                    drawBase: sp.renderYarnBase,
+                    drawGradients: sp.renderYarnGradients,
+                    drawShade: sp.renderYarnShade,
+                    drawShadow: sp.renderYarnShadow,
+                    drawEmbossing: sp.renderEmbossing
 
+                };
+                
                 if (sp.renderYarnBackground) {
+                    Debug.time("render.background");
                     Loadingbar.get("simulationRenderTo").title = "Rendering Yarn Background";
                     await renderFloatProperty("background", dFloats, renderParams);
+                    Debug.timeEnd("render.background", "simulation");
                 }
-
+        
                 if (sp.blurYarnBackground) {
-                    Filter.blur(pixels8, ctxW, 1);
+                    Filter.blur(pixels8, ctxW, ctxH, 1);
                 }
-
-                if (sp.renderYarnBase) {
+        
+                if (renderParams.drawBase || renderParams.drawShade || renderParams.drawShadow || renderParams.drawEmbossing) {
                     Loadingbar.get("simulationRenderTo").title = "Rendering Yarn Base";
-                    await renderFloatProperty("base", dFloats, renderParams);
+                    Debug.time("render.yarn");
+                    await renderFloatProperty("yarn", dFloats, renderParams);
+                    Debug.timeEnd("render.yarn", "simulation");
                 }
-
-                if (sp.renderYarnShadow) {
-                    Loadingbar.get("simulationRenderTo").title = "Rendering Yarn Shadows";
-                    await renderFloatProperty("shadows", dFloats, renderParams);
-                }
-
+        
                 ctx.putImageData(pixels, 0, 0);
-
-                if (quality > 1) await picaResize(ctx, ctx_output);
-
-                if (typeof callback === "function") callback();
-
-            }
-
-            Debug.timeEnd("Draw", "simulation");
-            Debug.timeEnd("Total", "simulation");
-
+        
+                if (quality > 1) {
+                    Debug.time("render.pica.resize");
+                    await picaResize(ctx, ctx_output);
+                    Debug.timeEnd("render.pica.resize", "simulation");
+                }
+        
+                Debug.timeEnd("Total", "simulation");
+        
+                resolve();
+                
+            });
+        
         }
 
     };
@@ -18037,7 +18168,7 @@ $(function() {
 
         return new Promise((resolve, reject) => {
             var floatCount = floats.length;
-            var chunkSize = 8192;
+            var chunkSize = 16384;
             var chunkCount = Math.ceil(floatCount / chunkSize);
 
             if (!chunkCount) return resolve();
@@ -18048,7 +18179,7 @@ $(function() {
             var lastfloatIndex = chunkCount == 1 ? floatCount - 1 : chunkSize - 1;
             let loadingbar = Loadingbar.get("simulationRenderTo");
 
-            $.doTimeout("floatDraw", 10, function() {
+            $.doTimeout("floatDraw", 1, function() {
                 for (var i = startfloatIndex; i <= lastfloatIndex; ++i) {
                     // drawFloat(...px, ...profiles, xNodes, yNodes, q.palette.colors, xScale, yScale, prop, sp.renderAlgorithm, floats[i]);
                     drawFloat(prop, floats[i], params);
@@ -18643,11 +18774,15 @@ $(function() {
                 $("#palette-chip-" + colorCode).addClass('palette-chip-hover');
             }
 
+            var tipText = rowColNum;
             if (colorCode) {
-                MouseTip.text(0, rowColNum + " (" + stripeSize + colorCode + ")");
-            } else {
-                MouseTip.text(0, rowColNum);
+                tipText += " (" + stripeSize + colorCode + ")";
+                const yarnId = q.palette.colors[colorCode].yarnId;
+                const yarn = q.graph.yarns[yarnId].name;
+                tipText += " " + yarn;
             }
+
+            MouseTip.text(0, tipText);
 
         }
 
